@@ -30,7 +30,7 @@ export CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
 
 To compile this module, type the following :
 
-    make -M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
+    make M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
 
 The command will generate a 'rk-vcodec.ko' file that you can `insmod`
 on the Rockchip board executing the kernel generated from the sources
@@ -42,7 +42,7 @@ you specified.
 
 Type the following command as **root**
 
-    make INSTALL_PATH=/install_root -M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
+    make INSTALL_PATH=/install_root M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
 
 Note that this will install `extra/rk-vcodec.ko`, along with the others
 kernel modules, in `/install_root/lib/modules/kernel_version/kernel`. 
@@ -53,7 +53,7 @@ The kernel will also try to auto-load the module when possible.
 
 ## If you're compiling directly
 
-    make -M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m modules_install
+    make M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m modules_install
 
 The module will then be loaded at boot. You can still load it directly through
 `modprobe rk-vcodec`.
