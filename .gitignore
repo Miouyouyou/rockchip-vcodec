@@ -3,3 +3,10 @@
 *.install
 *.cmd
 Module.symvers
+*~
+*#
+\#*
+.*~
+.\#*
+.*#
+*.kate-swp

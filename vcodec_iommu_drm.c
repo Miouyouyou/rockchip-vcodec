@@ -116,6 +116,7 @@ static void vcodec_drm_detach(struct vcodec_iommu_info *iommu_info)
 		return;
 	}
 
+	printk("And detaching with iommu_detach_device... Of course...\n");
 	iommu_detach_device(domain, dev);
 	drm_info->attached = false;
 
@@ -161,6 +162,7 @@ static int vcodec_drm_attach_unlock(struct vcodec_iommu_info *iommu_info)
 		return ret;
 
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+	printk("Attaching a IOMMU with arm_iommu (!??)\n");
 	ret = arm_iommu_attach_device(dev, mapping);
 	if (ret) {
 		dev_err(dev, "Failed to attach iommu device\n");
@@ -263,7 +265,7 @@ static void vcodec_drm_clear_map(struct kref *ref)
 	}
 
 	if (!drm_info->attached)
-		iommu_detach_device(domain, dev);
+		arm_iommu_detach_device(dev);
 
 	mutex_unlock(&iommu_info->iommu_mutex);
 }
@@ -539,8 +541,11 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	drm_buffer->attach = attach;
 	drm_buffer->sgt = sgt;
 
-	if (!drm_info->attached)
+	if (!drm_info->attached) {
+		printk("[vcodec_drm_import]\n");
+		printk("  iommu_detach_device(domain, dev)\n");
 		iommu_detach_device(domain, dev);
+	}
 
 	mutex_unlock(&iommu_info->iommu_mutex);
 

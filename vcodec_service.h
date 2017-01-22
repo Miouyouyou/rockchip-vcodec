@@ -25,7 +25,7 @@
  */
 
 /* Use 'k' as magic number */
-#define VPU_IOC_MAGIC			'l' // Best joke of the day
+#define VPU_IOC_MAGIC			'l' // Myy: Verbatim ! Best joke of the day !
 
 #define VPU_IOC_SET_CLIENT_TYPE		_IOW(VPU_IOC_MAGIC, 1, unsigned long)
 #define VPU_IOC_GET_HW_FUSE_STATUS	_IOW(VPU_IOC_MAGIC, 2, unsigned long)
@@ -52,6 +52,18 @@ enum VPU_CLIENT_TYPE {
 	VPU_DEC_PP              = 0x3,
 	VPU_TYPE_BUTT,
 };
+
+struct vpu_request {
+	__u32 *req;
+	__u32 size;
+};
+
+#ifdef CONFIG_COMPAT
+struct compat_vpu_request {
+	compat_uptr_t req;
+	__u32 size;
+};
+#endif
 
 /* Hardware decoder configuration description */
 struct vpu_dec_config {
