@@ -1732,7 +1732,7 @@ static int return_reg(struct vpu_subdev_data *data,
 static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			      unsigned long arg)
 {
-	dev_info("Called vpu_service_ioctl\n");
+
 	struct vpu_subdev_data *data =
 		container_of(filp->f_path.dentry->d_inode->i_cdev,
 			     struct vpu_subdev_data, cdev);
@@ -1748,7 +1748,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 		session->type = (enum VPU_CLIENT_TYPE)arg;
 		vpu_debug(DEBUG_IOCTL, "pid %d set client type %d\n",
 			  session->pid, session->type);
-		dev_info("Set client type to : %d\n", (enum VPU_CLIENT_TYPE) arg);
+
 	} break;
 	case VPU_IOC_GET_HW_FUSE_STATUS: {
 		struct vpu_request req;
@@ -1881,7 +1881,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 static long compat_vpu_service_ioctl(struct file *filp, unsigned int cmd,
 				     unsigned long arg)
 {
-	dev_info("Calling compat_vpu_service_ioctl\n");
+
 	struct vpu_subdev_data *data =
 		container_of(filp->f_path.dentry->d_inode->i_cdev,
 			     struct vpu_subdev_data, cdev);
@@ -2092,7 +2092,7 @@ static int vpu_service_open(struct inode *inode, struct file *filp)
 
 static int vpu_service_release(struct inode *inode, struct file *filp)
 {
-	dev_info("Releasing service !\n");
+
 	struct vpu_subdev_data *data =
 		container_of(inode->i_cdev, struct vpu_subdev_data, cdev);
 	struct vpu_service_info *pservice = data->pservice;
@@ -2301,7 +2301,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	}
 
 #ifdef CONFIG_RK_IOVMM
-	dev_info("'Back to legacy iommu probe', he said !\n");
+
 	/* Back to legacy iommu probe */
 	if (!data->mmu_dev) {
 		switch (data->mode) {
