@@ -13,11 +13,12 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/types.h>
 #include <linux/dma-iommu.h>
 
 #include <linux/dma-buf.h>
 #include <drm/drmP.h>
-#include <drm/drm_atomic.h>
+#include <linux/refcount.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 //#include <drm/drm_sync_helper.h>
@@ -302,7 +303,7 @@ static int vcodec_drm_free(struct vcodec_iommu_session_info *session_info,
 		return -EINVAL;
 	}
 
-	if (atomic_read(&drm_buffer->ref.refcount) == 0) {
+	if (refcount_read(&drm_buffer->ref.refcount) == 0) {
 		dma_buf_put(drm_buffer->dma_buf);
 		list_del_init(&drm_buffer->list);
 		kfree(drm_buffer);
@@ -422,7 +423,7 @@ vcodec_drm_free_fd(struct vcodec_iommu_session_info *session_info, int fd)
 	vcodec_drm_unmap_iommu(session_info, drm_buffer->index);
 
 	mutex_lock(&session_info->list_mutex);
-	if (atomic_read(&drm_buffer->ref.refcount) == 0) {
+	if (refcount_read(&drm_buffer->ref.refcount) == 0) {
 		dma_buf_put(drm_buffer->dma_buf);
 		list_del_init(&drm_buffer->list);
 		kfree(drm_buffer);

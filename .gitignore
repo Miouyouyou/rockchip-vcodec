@@ -10,3 +10,6 @@ Module.symvers
 .\#*
 .*#
 *.kate-swp
+.tmp_versions
+modules.order
+
