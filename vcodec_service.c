@@ -2303,14 +2303,14 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 		data->regs = pservice->reg_base;
 		ioaddr = pservice->ioaddr;
 	}
-	
+
 	sub_np = of_parse_phandle(np, "iommus", 0);
 	if (sub_np) {
 		sub_dev = of_find_device_by_node(sub_np);
 		data->mmu_dev = &sub_dev->dev;
 	}
-	
-#ifdef POUIP_POUIP_EN_SKIS // CONFIG_RK_IOVMM
+
+#ifdef CONFIG_RK_IOVMM
 
 	/* Back to legacy iommu probe */
 	if (!data->mmu_dev) {
@@ -2345,9 +2345,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	clear_bit(MMU_ACTIVATED, &data->state);
 	vpu_service_power_on(data, pservice);
 
-	// Checked
 	ret = vpu_service_check_hw(data);
-	return 0;
 	if (ret < 0) {
 		vpu_err("error: hw info check faild\n");
 		goto err;
@@ -2355,7 +2353,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 
 	hw_info = data->hw_info;
 	regs = (u8 *)data->regs;
-	
+
 	if (hw_info->dec_reg_num) {
 		data->dec_dev.iosize = hw_info->dec_io_size;
 		data->dec_dev.regs = (u32 *)(regs + hw_info->dec_offset);
@@ -2367,6 +2365,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	}
 
 	data->reg_size = max(hw_info->dec_io_size, hw_info->enc_io_size);
+
 	data->irq_enc = platform_get_irq_byname(pdev, "irq_enc");
 	if (data->irq_enc > 0) {
 		ret = devm_request_threaded_irq(dev, data->irq_enc,
@@ -2391,7 +2390,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 			goto err;
 		}
 	}
-	
 	atomic_set(&data->dec_dev.irq_count_codec, 0);
 	atomic_set(&data->dec_dev.irq_count_pp, 0);
 	atomic_set(&data->enc_dev.irq_count_codec, 0);
@@ -2632,7 +2630,7 @@ static int vcodec_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	
+	return 0;
 
 	if (of_property_read_bool(np, "subcnt")) {
 		for (i = 0; i < pservice->subcnt; i++) {
@@ -2647,7 +2645,6 @@ static int vcodec_probe(struct platform_device *pdev)
 	} else {
 		vcodec_subdev_probe(pdev, pservice);
 	}
-	return 0;
 
 	vpu_service_power_off(pservice);
 
