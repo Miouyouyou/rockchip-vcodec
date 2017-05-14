@@ -42,8 +42,6 @@
 #include <linux/debugfs.h>
 #include <linux/pm_runtime.h>
 
-#include <linux/atomic.h>
-
 #if 0
 #include <linux/rockchip/cru.h>
 #include <linux/rockchip/pmu.h>
@@ -1615,7 +1613,6 @@ static void reg_copy_to_hw(struct vpu_subdev_data *data, struct vpu_reg *reg)
 
 static void try_set_reg(struct vpu_subdev_data *data)
 {
-	printk(KERN_ALERT "try_set_reg\n");
 	struct vpu_service_info *pservice = data->pservice;
 
 	vpu_debug_enter();
@@ -1697,7 +1694,6 @@ static void try_set_reg(struct vpu_subdev_data *data)
 static int return_reg(struct vpu_subdev_data *data,
 		      struct vpu_reg *reg, u32 __user *dst)
 {
-	printk(KERN_ALERT "return_reg\n");
 	struct vpu_hw_info *hw_info = data->hw_info;
 	size_t size = reg->size;
 	u32 base;
@@ -1736,7 +1732,7 @@ static int return_reg(struct vpu_subdev_data *data,
 static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 			      unsigned long arg)
 {
-	printk(KERN_ALERT "vpu_service_ioctl\n");
+
 	struct vpu_subdev_data *data =
 		container_of(filp->f_path.dentry->d_inode->i_cdev,
 			     struct vpu_subdev_data, cdev);
@@ -1885,7 +1881,7 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 static long compat_vpu_service_ioctl(struct file *filp, unsigned int cmd,
 				     unsigned long arg)
 {
-	printk(KERN_ALERT "compat_vpu_service_ioctl\n");
+
 	struct vpu_subdev_data *data =
 		container_of(filp->f_path.dentry->d_inode->i_cdev,
 			     struct vpu_subdev_data, cdev);
@@ -2036,7 +2032,6 @@ static long compat_vpu_service_ioctl(struct file *filp, unsigned int cmd,
 
 static int vpu_service_check_hw(struct vpu_subdev_data *data)
 {
-	printk(KERN_ALERT "vpu_service_check_hw\n");
 	struct vpu_service_info *pservice = data->pservice;
 	int ret = -EINVAL, i = 0;
 	u32 hw_id = readl_relaxed(data->regs);
@@ -2062,7 +2057,6 @@ static int vpu_service_check_hw(struct vpu_subdev_data *data)
 
 static int vpu_service_open(struct inode *inode, struct file *filp)
 {
-	printk(KERN_ALERT "vpu_service_open\n");
 	struct vpu_subdev_data *data = container_of(
 			inode->i_cdev, struct vpu_subdev_data, cdev);
 	struct vpu_service_info *pservice = data->pservice;
@@ -2098,7 +2092,7 @@ static int vpu_service_open(struct inode *inode, struct file *filp)
 
 static int vpu_service_release(struct inode *inode, struct file *filp)
 {
-	printk(KERN_ALERT "vpu_service_release\n");
+
 	struct vpu_subdev_data *data =
 		container_of(inode->i_cdev, struct vpu_subdev_data, cdev);
 	struct vpu_service_info *pservice = data->pservice;
@@ -2151,7 +2145,6 @@ static void get_hw_info(struct vpu_subdev_data *data);
 #ifdef CONFIG_RK_IOVMM
 static struct device *rockchip_get_sysmmu_dev(const char *compt)
 {
-	printk(KERN_ALERT "rockchip_get_sysmmu_dev\n");
 	struct device_node *dn = NULL;
 	struct platform_device *pd = NULL;
 	struct device *ret = NULL;
@@ -2177,7 +2170,6 @@ static struct device *rockchip_get_sysmmu_dev(const char *compt)
 static inline void platform_set_sysmmu(struct device *iommu,
 				       struct device *dev)
 {
-	printk(KERN_ALERT "Inline platform_set_sysmmu\n");
 	dev->archdata.iommu = iommu;
 }
 #else
@@ -2193,7 +2185,6 @@ int vcodec_sysmmu_fault_hdl(struct device *dev,
 			    unsigned long pgtable_base,
 			    unsigned long fault_addr, unsigned int status)
 {
-	printk(KERN_ALERT "Entering vcodec_sysmmu_fault_hdl");
 	struct platform_device *pdev;
 	struct vpu_service_info *pservice;
 	struct vpu_subdev_data *data;
@@ -2265,7 +2256,6 @@ int vcodec_sysmmu_fault_hdl(struct device *dev,
 static int vcodec_subdev_probe(struct platform_device *pdev,
 			       struct vpu_service_info *pservice)
 {
-	printk(KERN_ALERT "vcodec_subdev_probe\n");
 	uint8_t *regs = NULL;
 	int32_t ret = 0;
 	uint32_t ioaddr = 0;
@@ -2455,7 +2445,6 @@ err:
 
 static void vcodec_subdev_remove(struct vpu_subdev_data *data)
 {
-	printk(KERN_ALERT "vcodec_subdev_remove\n");
 	struct vpu_service_info *pservice = data->pservice;
 
 	vcodec_iommu_info_destroy(data->iommu_info);
@@ -2480,7 +2469,6 @@ static void vcodec_subdev_remove(struct vpu_subdev_data *data)
 static void vcodec_read_property(struct device_node *np,
 				 struct vpu_service_info *pservice)
 {
-	printk(KERN_ALERT "Entering vcodec_read_property\n");
 	pservice->mode_bit = 0;
 	pservice->mode_ctrl = 0;
 	pservice->subcnt = 0;
@@ -2538,7 +2526,6 @@ static void vcodec_read_property(struct device_node *np,
 
 static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 {
-	printk(KERN_ALERT "Entering vcodec_init_drvdata\n");
 	pservice->dev_id = VCODEC_DEVICE_ID_VPU;
 	pservice->curr_mode = -1;
 
@@ -2570,7 +2557,6 @@ static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 
 static int vcodec_probe(struct platform_device *pdev)
 {
-	printk(KERN_ALERT "Entered vcodec_probe\n");
 	int i;
 	int ret = 0;
 	struct resource *res = NULL;
@@ -2591,7 +2577,6 @@ static int vcodec_probe(struct platform_device *pdev)
 
 	vcodec_read_property(np, pservice);
 	vcodec_init_drvdata(pservice);
-
 
 	/* Underscore for label, hyphens for name */
 	switch (driver_data->device_type) {
@@ -2630,7 +2615,6 @@ static int vcodec_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-	return 0;
 
 	if (of_property_read_bool(np, "subcnt")) {
 		for (i = 0; i < pservice->subcnt; i++) {
@@ -2725,22 +2709,6 @@ static void *vcodec_get_drv_data(struct platform_device *pdev)
 		driver_data = (struct vcodec_device_info *)match->data;
 
 	return driver_data;
-}
-
-
-static int dummy_probe(struct platform_device *dev)
-{
-	return 0;
-}
-
-static int dummy_remove(struct platform_device *dev)
-{
-	return 0;
-}
-
-static void dummy_shutdown(struct platform_device *dev)
-{
-	return 0;
 }
 
 static struct platform_driver vcodec_driver = {

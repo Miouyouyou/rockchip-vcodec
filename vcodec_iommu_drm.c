@@ -303,9 +303,7 @@ static int vcodec_drm_free(struct vcodec_iommu_session_info *session_info,
 		return -EINVAL;
 	}
 
-	dev_err(dev, "Before KREF read !\n");
-
-	if (kref_read(&drm_buffer->ref) == 0) {
+	if (refcount_read(&drm_buffer->ref.refcount) == 0) {
 		dma_buf_put(drm_buffer->dma_buf);
 		list_del_init(&drm_buffer->list);
 		kfree(drm_buffer);
@@ -407,7 +405,6 @@ vcodec_drm_unmap_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 static int
 vcodec_drm_free_fd(struct vcodec_iommu_session_info *session_info, int fd)
 {
-	printk("vcodec_drm_free_fd\n");
 	struct device *dev = session_info->dev;
 	/* please double-check all maps have been release */
 	struct vcodec_drm_buffer *drm_buffer = NULL;
@@ -426,10 +423,7 @@ vcodec_drm_free_fd(struct vcodec_iommu_session_info *session_info, int fd)
 	vcodec_drm_unmap_iommu(session_info, drm_buffer->index);
 
 	mutex_lock(&session_info->list_mutex);
-
-	dev_err(dev, "Just before KREF Read\n");
-
-	if (kref_read(&drm_buffer->ref) == 0) {
+	if (refcount_read(&drm_buffer->ref.refcount) == 0) {
 		dma_buf_put(drm_buffer->dma_buf);
 		list_del_init(&drm_buffer->list);
 		kfree(drm_buffer);
