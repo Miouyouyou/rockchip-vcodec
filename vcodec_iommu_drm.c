@@ -23,6 +23,7 @@
 #include <drm/rockchip_drm.h>
 #endif
 #include <linux/dma-mapping.h>
+#include <asm/dma-iommu.h>
 #include <linux/rockchip-iovmm.h>
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
@@ -225,7 +226,7 @@ static int vcodec_finalise_sg(struct scatterlist *sg,
 
 		s->offset += s_iova_off;
 		s->length = s_length;
-		sg_dma_address(s) = DMA_ERROR_CODE;
+		sg_dma_address(s) = ARM_MAPPING_ERROR;
 		sg_dma_len(s) = 0;
 
 		/*
@@ -264,11 +265,11 @@ static void vcodec_invalidate_sg(struct scatterlist *sg, int nents)
 	int i;
 
 	for_each_sg(sg, s, nents, i) {
-		if (sg_dma_address(s) != DMA_ERROR_CODE)
+		if (sg_dma_address(s) != ARM_MAPPING_ERROR)
 			s->offset += sg_dma_address(s);
 		if (sg_dma_len(s))
 			s->length = sg_dma_len(s);
-		sg_dma_address(s) = DMA_ERROR_CODE;
+		sg_dma_address(s) = ARM_MAPPING_ERROR;
 		sg_dma_len(s) = 0;
 	}
 }
