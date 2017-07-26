@@ -1,0 +1,7 @@
+#ifndef ROCKCHIP_VCODEC_CONFIG_H
+#define ROCKCHIP_VCODEC_CONFIG_H 1
+
+#define CONFIG_DRM 1
+#undef CONFIG_ION
+
+#endif
