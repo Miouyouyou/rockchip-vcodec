@@ -1,15 +1,16 @@
 # About
 
-The rockchip VPU service driver itself that can be built as an 
-Out-Of-Tree module.
+Implementation of the rockchip VPU service driver itself that can be
+built as an Out-Of-Tree module.
+Most of the code is written by the Rockchip engineers.
 
-You'll still need a [patched kernel](https://github.com/Miouyouyou/MyyQi/blob/master/patches/kernel/v4.10-rc4/0013-Export-rockchip_pmu_set_idle_request-for-out-of-tree.patch) 
-to compile these drivers, as some Rockchip Power domains symbols are 
-required to compile this module successfully, and therefore need to be
-exported.
+This repository goal is to focus on the VPU code only, and make it work
+with 4.13 kernels and onward.
 
-You'll also need [several modifications to your DTS files](https://github.com/Miouyouyou/MyyQi/blob/master/patches/kernel/v4.10-rc4/0012-arm-dts-Adding-and-enabling-VPU-services-addresses-f.patch) if 
-you're using a mainline kernel.
+Currently being tested against
+[RockMyy-Build](https://github.com/Miouyouyou/RockMyy-Build) kernels.
+Note that this might generate crashes and/or freezes in its current
+state.
 
 # Compilation
 
@@ -57,10 +58,3 @@ The kernel will also try to auto-load the module when possible.
 
 The module will then be loaded at boot. You can still load it directly through
 `modprobe rk-vcodec`.
-
-# Todo
-
-Find a way to use the Makefile to build the module directly, with 
-parameters setup with some kind of configuration system
-(Cmake, autotools)...
-
