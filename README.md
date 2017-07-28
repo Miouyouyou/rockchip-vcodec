@@ -1,16 +1,30 @@
+If you appreciate this project, support me on Patreon !
+
+[![Patreon !](https://raw.githubusercontent.com/Miouyouyou/RockMyy/master/.img/button-patreon.png)](https://www.patreon.com/Miouyouyou)
+
 # About
 
-Implementation of the rockchip VPU service driver itself that can be
-built as an Out-Of-Tree module.
-Most of the code is written by the Rockchip engineers.
+This repository goal is to focus on this Rockchip VPU driver code in
+order to use it with 4.13 kernels and onward.
 
-This repository goal is to focus on the VPU code only, and make it work
-with 4.13 kernels and onward.
+Most of the code is written by the Rockchip engineers, in the
+[rockchip_forwardports](https://github.com/rockchip-linux/rockchip_forwardports)
+repository initiated by [phh](https://github.com/phhusson), and updated
+by [wzyy2](https://github.com/wzyy2), and in the 
+[kernel 4.4 patched and maintained by Rockchip](https://github.com/rockchip-linux/kernel).
+
+[phh](https://github.com/phhusson) took care of making it compilable in
+an Out-Of-Tree fashion.
 
 Currently being tested against
 [RockMyy-Build](https://github.com/Miouyouyou/RockMyy-Build) kernels.
 Note that this might generate crashes and/or freezes in its current
 state.
+
+The kernel patches required to use this driver will be integrated in
+RockMyy and RockMyy-Build this week-end.
+If you're in a hurry, for whatever reason,
+[the patch is here](https://raw.githubusercontent.com/Miouyouyou/MyyQi/master/patches/kernel/v4.11/0012-Export-rockchip_pmu_set_idle_request-for-out-of-tree.patch).
 
 # Compilation
 
