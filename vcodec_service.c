@@ -690,7 +690,7 @@ static void _vpu_reset(struct vpu_subdev_data *data)
 	pservice->reg_resev = NULL;
 
 #ifdef CONFIG_RESET_CONTROLLER
-	rockchip_pmu_idle_request(pservice->dev, true);
+	rockchip_pmu_set_idle_request(pservice->dev, true);
 
 	rate = clk_get_rate(pservice->aclk_vcodec);
 	/*
@@ -714,7 +714,7 @@ static void _vpu_reset(struct vpu_subdev_data *data)
 	try_reset_deassert(pservice->rst_niu_a);
 
 #if 0
-	rockchip_pmu_idle_request(pservice->dev, false);
+	rockchip_pmu_set_idle_request(pservice->dev, false);
 #endif
 	clk_set_rate(pservice->aclk_vcodec, rate);
 	dev_info(pservice->dev, "reset done\n");
