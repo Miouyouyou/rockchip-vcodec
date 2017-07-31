@@ -21,10 +21,9 @@ Currently being tested against
 Note that this might generate crashes and/or freezes in its current
 state.
 
-The kernel patches required to use this driver will be integrated in
-RockMyy and RockMyy-Build this week-end.
-If you're in a hurry, for whatever reason,
-[the patch is here](https://raw.githubusercontent.com/Miouyouyou/MyyQi/master/patches/kernel/v4.11/0012-Export-rockchip_pmu_set_idle_request-for-out-of-tree.patch).
+You'll need a patched kernel anyway if you want to test this VPU code.
+The patches required are in the [kernel_patches][./kernel_patches]
+directory.
 
 # Compilation
 
