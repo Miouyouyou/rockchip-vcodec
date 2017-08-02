@@ -293,17 +293,28 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 	 * trickery we can modify the list in-place, but reversibly, by
 	 * stashing the unaligned parts in the as-yet-unused DMA fields.
 	 */
+	printk(KERN_ERR
+		"( Myy ) for_each_sg(%p, ??, %d, ??)\n",
+		sg, nents);
 	for_each_sg(sg, s, nents, i) {
 		size_t s_iova_off = iova_offset(iovad, s->offset);
 		size_t s_length = s->length;
 		size_t pad_len = (mask - iova_len + 1) & mask;
 
+		printk(KERN_ERR
+			"( Myy ) vcodec_dma_map_sg loop [%d/%d]\n",
+			i, nents);
 		sg_dma_address(s) = s_iova_off;
 		sg_dma_len(s) = s_length;
 		s->offset -= s_iova_off;
 		s_length = iova_align(iovad, s_length + s_iova_off);
 		s->length = s_length;
 
+		printk(KERN_ERR
+			"( Myy ) [%d/%d] iova_align(%p, %d (%d + %d)) = %d\n",
+			i, nents,
+			iovad, s_length + s_iova_off, s_length, s_iova_off,
+			s_length);
 		/*
 		 * Due to the alignment of our single IOVA allocation, we can
 		 * depend on these assumptions about the segment boundary mask:
@@ -323,6 +334,9 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 		}
 
 		iova_len += s_length;
+		printk(KERN_ERR
+			"( Myy ) [%d/%d] iova_len = %d\n",
+			i, nents, iova_len);
 		prev = s;
 	}
 
@@ -330,7 +344,10 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 					  mask >> shift, true);
 	if (!iova) {
 		printk(KERN_ERR
-			"alloc_iova(%p, %zd, %lu, true) → %p",
+			"( Myy ) iova_align(%p, %d) → %zd\n",
+			iovad, iova_len, iova_align(iovad, iova_len));
+		printk(KERN_ERR
+			"( Myy ) alloc_iova(%p, %zd, %lu, true) → %p",
 			iovad, iova_align(iovad, iova_len) >> shift, mask >> shift,
 			iova);
 		goto out_restore_sg;
@@ -343,7 +360,7 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 	dma_addr = iova_dma_addr(iovad, iova);
 	if (iommu_map_sg(domain, dma_addr, sg, nents, prot) < iova_len) {
 		printk(KERN_ERR
-			"iommu_map_sg(%p, %x, %p, %d, %d) < %d",
+			"( Myy ) iommu_map_sg(%p, %x, %p, %d, %d) < %d",
 			domain, dma_addr, sg, nents, prot, iova_len);
 		goto out_free_iova;
 	}
@@ -638,7 +655,7 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	}
 
 	drm_buffer = kzalloc(sizeof(*drm_buffer), GFP_KERNEL);
-	dev_info(dev, "kzalloc(%d, GFP_KERNEL) → %p\n",
+	dev_info(dev, "( Myy ) kzalloc(%d, GFP_KERNEL) → %p\n",
 		sizeof(*drm_buffer), drm_buffer);
 	if (!drm_buffer) {
 		ret = -ENOMEM;
@@ -676,7 +693,7 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	 */
 	drm_buffer->copy_sgt = kmalloc(sizeof(*drm_buffer->copy_sgt),
 				       GFP_KERNEL);
-	dev_info(dev, "kzalloc(%d, GFP_KERNEL) → %p\n",
+	dev_info(dev, "( Myy ) kzalloc(%d, GFP_KERNEL) → %p\n",
 		sizeof(*drm_buffer->copy_sgt), drm_buffer->copy_sgt);
 	if (!drm_buffer->copy_sgt) {
 		ret = -ENOMEM;
@@ -691,6 +708,12 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		sg_dma_address(s) = page_to_phys(sg_page(sg));
 		s->offset = sg->offset;
 		s->length = sg->length;
+
+		printk(KERN_ERR
+			"( Myy ) [%d/%d] sg->length = %d\n",
+			i, sgt->nents,
+			sg->length);
+
 		s = sg_next(s);
 	}
 
