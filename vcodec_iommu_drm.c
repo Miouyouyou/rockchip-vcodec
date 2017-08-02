@@ -296,25 +296,33 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 	printk(KERN_ERR
 		"( Myy ) for_each_sg(%p, ??, %d, ??)\n",
 		sg, nents);
+	printk(KERN_ERR
+		"( Myy ) iovad->granule = %lu\n",
+		iovad->granule);
 	for_each_sg(sg, s, nents, i) {
 		size_t s_iova_off = iova_offset(iovad, s->offset);
 		size_t s_length = s->length;
 		size_t pad_len = (mask - iova_len + 1) & mask;
+		size_t aligned_s_length = 0;
 
 		printk(KERN_ERR
 			"( Myy ) vcodec_dma_map_sg loop [%d/%d]\n",
 			i, nents);
+		printk(KERN_ERR
+			"( Myy ) [%d/%d] (Before) iova_align(%p, %d (%d + %d))\n",
+			i, nents,
+			iovad, s_length + s_iova_off, s_length, s_iova_off);
 		sg_dma_address(s) = s_iova_off;
 		sg_dma_len(s) = s_length;
 		s->offset -= s_iova_off;
-		s_length = iova_align(iovad, s_length + s_iova_off);
-		s->length = s_length;
+		aligned_s_length = iova_align(iovad, s_length + s_iova_off);
+		s->length = aligned_s_length;
 
 		printk(KERN_ERR
-			"( Myy ) [%d/%d] iova_align(%p, %d (%d + %d)) = %d\n",
+			"( Myy ) [%d/%d] (After) iova_align(%p, %d (%d + %d)) = %d\n",
 			i, nents,
 			iovad, s_length + s_iova_off, s_length, s_iova_off,
-			s_length);
+			aligned_s_length);
 		/*
 		 * Due to the alignment of our single IOVA allocation, we can
 		 * depend on these assumptions about the segment boundary mask:
@@ -328,15 +336,15 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 		 *   iova_len == 0, thus we cannot dereference prev the first
 		 *   time through here (i.e. before it has a meaningful value).
 		 */
-		if (pad_len && pad_len < s_length - 1) {
+		if (pad_len && pad_len < aligned_s_length - 1) {
 			prev->length += pad_len;
 			iova_len += pad_len;
 		}
 
-		iova_len += s_length;
+		iova_len += aligned_s_length;
 		printk(KERN_ERR
-			"( Myy ) [%d/%d] iova_len = %d\n",
-			i, nents, iova_len);
+			"( Myy ) [%d/%d] iova_len = %d (+%d)\n",
+			i, nents, iova_len, aligned_s_length);
 		prev = s;
 	}
 
@@ -717,6 +725,10 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		s = sg_next(s);
 	}
 
+	for_each_sg(drm_buffer->copy_sgt->sgl, sg, drm_buffer->copy_sgt->nents, i) {
+		printk(KERN_ERR "( Myy ) (Copy) [%d/%d] sg->length = %d\n",
+			i, drm_buffer->copy_sgt->nents, sg->length);
+	}
 	ret = vcodec_dma_map_sg(drm_info->domain, drm_buffer->copy_sgt->sgl,
 				drm_buffer->copy_sgt->nents,
 				IOMMU_READ | IOMMU_WRITE);
