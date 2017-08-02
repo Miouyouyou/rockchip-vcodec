@@ -22,7 +22,7 @@ Note that this might generate crashes and/or freezes in its current
 state.
 
 You'll need a patched kernel anyway if you want to test this VPU code.
-The patches required are in the [kernel_patches][./kernel_patches]
+The patches required are in the [kernel_patches](./kernel_patches)
 directory.
 
 # Compilation
