@@ -1045,6 +1045,8 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 
 	for (i = 0; i < size; i++) {
 		int usr_fd = reg->reg[tbl[i]] & 0x3FF;
+		dev_err(pservice->dev, "( Myy ) reg->reg[tbl[%d]] → %d (%x)\n",
+			i, reg->reg[tbl[i]], reg->reg[tbl[i]]);
 
 		/* if userspace do not set the fd at this register, skip */
 		if (usr_fd == 0)
@@ -1084,6 +1086,9 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 			  tbl[i], usr_fd, offset, i);
 
 		hdl = vcodec_iommu_import(data->iommu_info, session, usr_fd);
+		dev_err(pservice->dev,
+			"( Myy ) vcodec_iommu_import(%p, %p, %d) → %d\n",
+			data->iommu_info, session, usr_fd, hdl);
 
 		if (task->reg_pps > 0 && task->reg_pps == tbl[i]) {
 			int pps_info_offset;
@@ -1158,6 +1163,12 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 					     mem_region->hdl, &mem_region->iova,
 					     &mem_region->len);
 		if (ret < 0) {
+			dev_err(pservice->dev,
+				"( Myy ) vcodec_iommu_map_iommu(%p,%p,%d,%p,%p) → %d\n",
+				data->iommu_info, session, mem_region->hdl,
+				&mem_region->iova, &mem_region->len,
+				ret
+			);
 			dev_err(pservice->dev,
 				"reg %d fd %d ion map iommu failed\n",
 				tbl[i], usr_fd);
@@ -2129,7 +2140,7 @@ static int vpu_service_open(struct inode *inode, struct file *filp)
 	filp->private_data = (void *)session;
 	mutex_unlock(&pservice->lock);
 
-	dev_dbg(pservice->dev, "dev opened\n");
+	dev_info(pservice->dev, "dev opened\n");
 	vpu_debug_leave();
 	return nonseekable_open(inode, filp);
 }
@@ -2351,6 +2362,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	if (sub_np) {
 		sub_dev = of_find_device_by_node(sub_np);
 		data->mmu_dev = &sub_dev->dev;
+		dev_info(dev, "( Myy ) Used the DTB IO moomoomoos\n");
 	}
 
 	/* Back to legacy iommu probe */

@@ -328,17 +328,28 @@ static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
 
 	iova = alloc_iova(iovad, iova_align(iovad, iova_len) >> shift,
 					  mask >> shift, true);
-	if (!iova)
+	if (!iova) {
+		printk(KERN_ERR
+			"alloc_iova(%p, %zd, %lu, true) → %p",
+			iovad, iova_align(iovad, iova_len) >> shift, mask >> shift,
+			iova);
 		goto out_restore_sg;
+	}
 
 	/*
 	 * We'll leave any physical concatenation to the IOMMU driver's
 	 * implementation - it knows better than we do.
 	 */
 	dma_addr = iova_dma_addr(iovad, iova);
-	if (iommu_map_sg(domain, dma_addr, sg, nents, prot) < iova_len)
+	if (iommu_map_sg(domain, dma_addr, sg, nents, prot) < iova_len) {
+		printk(KERN_ERR
+			"iommu_map_sg(%p, %x, %p, %d, %d) < %d",
+			domain, dma_addr, sg, nents, prot, iova_len);
 		goto out_free_iova;
+	}
 
+	printk(KERN_ERR
+		"( Myy ) Reached the normal end of vcodec_dma_map_sg\n");
 	return vcodec_finalise_sg(sg, nents, dma_addr);
 
 out_free_iova:
@@ -482,6 +493,9 @@ static int vcodec_drm_map_iommu(struct vcodec_iommu_session_info *session_info,
 
 	mutex_lock(&session_info->list_mutex);
 	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
+	dev_info(dev,
+		"( Myy ) vcodec_drm_get_buffer_no_lock(%p, %d) → %p",
+		session_info, idx, drm_buffer);
 	mutex_unlock(&session_info->list_mutex);
 
 	if (!drm_buffer) {
@@ -624,6 +638,8 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	}
 
 	drm_buffer = kzalloc(sizeof(*drm_buffer), GFP_KERNEL);
+	dev_info(dev, "kzalloc(%d, GFP_KERNEL) → %p\n",
+		sizeof(*drm_buffer), drm_buffer);
 	if (!drm_buffer) {
 		ret = -ENOMEM;
 		return ret;
@@ -660,6 +676,8 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	 */
 	drm_buffer->copy_sgt = kmalloc(sizeof(*drm_buffer->copy_sgt),
 				       GFP_KERNEL);
+	dev_info(dev, "kzalloc(%d, GFP_KERNEL) → %p\n",
+		sizeof(*drm_buffer->copy_sgt), drm_buffer->copy_sgt);
 	if (!drm_buffer->copy_sgt) {
 		ret = -ENOMEM;
 		goto fail_detach;
@@ -679,6 +697,11 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	ret = vcodec_dma_map_sg(drm_info->domain, drm_buffer->copy_sgt->sgl,
 				drm_buffer->copy_sgt->nents,
 				IOMMU_READ | IOMMU_WRITE);
+	dev_info(dev,
+		"vcodec_dma_map_sg(%p, %p, %d, IOMMU_READ | IOMMU_WRITE) → %d\n",
+		drm_info->domain, drm_buffer->copy_sgt->sgl,
+		drm_buffer->copy_sgt->nents,
+		ret);
 	if (!ret) {
 		ret = -ENOMEM;
 		goto fail_alloc;
