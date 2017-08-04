@@ -2,6 +2,18 @@ If you appreciate this project, support me on Patreon !
 
 [![Patreon !](https://raw.githubusercontent.com/Miouyouyou/RockMyy/master/.img/button-patreon.png)](https://www.patreon.com/Miouyouyou)
 
+# State
+
+Unusable at the moment, a good part, if not the entire driver needs to
+be rewritten using up to date APIs, as some parts of the current driver
+are in an unmaintainable state, it seems.
+
+Take a look at the Wiki for more info.
+
+The rewrite takes place in the
+[DRM_rewrite](https://github.com/Miouyouyou/rockchip-vcodec/tree/DRM_rewrite)
+branch.
+
 # About
 
 This repository goal is to focus on this Rockchip VPU driver code in
