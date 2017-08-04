@@ -446,13 +446,6 @@ struct vpu_request {
 	u32 size;
 };
 
-#ifdef CONFIG_COMPAT
-struct compat_vpu_request {
-	compat_uptr_t req;
-	u32 size;
-};
-#endif
-
 #define VDPU_SOFT_RESET_REG	101
 #define VDPU_CLEAN_CACHE_REG	516
 #define VEPU_CLEAN_CACHE_REG	772
@@ -713,12 +706,8 @@ static void _vpu_reset(struct vpu_subdev_data *data)
 	try_reset_deassert(pservice->rst_niu_h);
 	try_reset_deassert(pservice->rst_niu_a);
 
-#if 0
-	rockchip_pmu_idle_request(pservice->dev, false);
-#endif
 	clk_set_rate(pservice->aclk_vcodec, rate);
 	dev_info(pservice->dev, "reset done\n");
-#endif
 }
 
 static void vpu_reset(struct vpu_subdev_data *data)
@@ -1940,152 +1929,6 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 	return 0;
 }
 
-#ifdef CONFIG_COMPAT
-static long compat_vpu_service_ioctl(struct file *filp, unsigned int cmd,
-				     unsigned long arg)
-{
-	struct vpu_subdev_data *data =
-		container_of(filp->f_path.dentry->d_inode->i_cdev,
-			     struct vpu_subdev_data, cdev);
-	struct vpu_service_info *pservice = data->pservice;
-	struct vpu_session *session = (struct vpu_session *)filp->private_data;
-
-	vpu_debug_enter();
-	vpu_debug(3, "cmd %x, COMPAT_VPU_IOC_SET_CLIENT_TYPE %x\n", cmd,
-		  (u32)COMPAT_VPU_IOC_SET_CLIENT_TYPE);
-	if (NULL == session)
-		return -EINVAL;
-
-	switch (cmd) {
-	case COMPAT_VPU_IOC_SET_CLIENT_TYPE: {
-		session->type = (enum VPU_CLIENT_TYPE)arg;
-		vpu_debug(DEBUG_IOCTL, "compat set client type %d\n",
-			  session->type);
-	} break;
-	case COMPAT_VPU_IOC_GET_HW_FUSE_STATUS: {
-		struct compat_vpu_request req;
-
-		vpu_debug(DEBUG_IOCTL, "compat get hw status %d\n",
-			  session->type);
-		if (copy_from_user(&req, compat_ptr((compat_uptr_t)arg),
-				   sizeof(struct compat_vpu_request))) {
-			vpu_err("error: compat get hw status copy_from_user failed\n");
-			return -EFAULT;
-		} else {
-			void *config = (session->type != VPU_ENC) ?
-				       ((void *)&pservice->dec_config) :
-				       ((void *)&pservice->enc_config);
-			size_t size = (session->type != VPU_ENC) ?
-				      (sizeof(struct vpu_dec_config)) :
-				      (sizeof(struct vpu_enc_config));
-
-			if (copy_to_user(compat_ptr((compat_uptr_t)req.req),
-					 config, size)) {
-				vpu_err("error: compat get hw status copy_to_user failed type %d\n",
-					session->type);
-				return -EFAULT;
-			}
-		}
-	} break;
-	case COMPAT_VPU_IOC_SET_REG: {
-		struct compat_vpu_request req;
-		struct vpu_reg *reg;
-
-		vpu_debug(DEBUG_IOCTL, "compat set reg type %d\n",
-			  session->type);
-		if (copy_from_user(&req, compat_ptr((compat_uptr_t)arg),
-				   sizeof(struct compat_vpu_request))) {
-			vpu_err("compat set_reg copy_from_user failed\n");
-			return -EFAULT;
-		}
-		reg = reg_init(data, session,
-			       compat_ptr((compat_uptr_t)req.req), req.size);
-		if (NULL == reg) {
-			return -EFAULT;
-		} else {
-			queue_work(pservice->set_workq, &data->set_work);
-		}
-	} break;
-	case COMPAT_VPU_IOC_GET_REG: {
-		struct compat_vpu_request req;
-		struct vpu_reg *reg;
-		int ret;
-
-		vpu_debug(DEBUG_IOCTL, "compat get reg type %d\n",
-			  session->type);
-		if (copy_from_user(&req, compat_ptr((compat_uptr_t)arg),
-				   sizeof(struct compat_vpu_request))) {
-			vpu_err("compat get reg copy_from_user failed\n");
-			return -EFAULT;
-		}
-
-		ret = wait_event_timeout(session->wait,
-					 !list_empty(&session->done),
-					 VPU_TIMEOUT_DELAY);
-
-		if (!list_empty(&session->done)) {
-			if (ret < 0)
-				vpu_err("warning: pid %d wait task error ret %d\n",
-					session->pid, ret);
-			ret = 0;
-		} else {
-			if (unlikely(ret < 0)) {
-				vpu_err("error: pid %d wait task ret %d\n",
-					session->pid, ret);
-			} else if (ret == 0) {
-				vpu_err("error: pid %d wait %d task done timeout\n",
-					session->pid,
-					atomic_read(&session->task_running));
-				ret = -ETIMEDOUT;
-			}
-		}
-
-		if (ret < 0) {
-			int task_running = atomic_read(&session->task_running);
-
-			mutex_lock(&pservice->lock);
-			vpu_service_dump(pservice);
-			if (task_running) {
-				atomic_set(&session->task_running, 0);
-				atomic_sub(task_running,
-					   &pservice->total_running);
-				dev_err(pservice->dev,
-					"%d task is running but not return, reset hardware...",
-					task_running);
-				vpu_reset(data);
-				dev_err(pservice->dev, "done\n");
-			}
-			vpu_service_session_clear(data, session);
-			mutex_unlock(&pservice->lock);
-			return ret;
-		}
-
-		mutex_lock(&pservice->lock);
-		reg = list_entry(session->done.next,
-				 struct vpu_reg, session_link);
-		return_reg(data, reg, compat_ptr((compat_uptr_t)req.req));
-		mutex_unlock(&pservice->lock);
-	} break;
-	case COMPAT_VPU_IOC_PROBE_IOMMU_STATUS: {
-		int iommu_enable = 1;
-
-		vpu_debug(DEBUG_IOCTL, "COMPAT_VPU_IOC_PROBE_IOMMU_STATUS\n");
-
-		if (copy_to_user(compat_ptr((compat_uptr_t)arg),
-				 &iommu_enable, sizeof(int))) {
-			vpu_err("error: VPU_IOC_PROBE_IOMMU_STATUS copy_to_user failed\n");
-			return -EFAULT;
-		}
-	} break;
-	default: {
-		vpu_err("error: unknow vpu service ioctl cmd %x\n", cmd);
-	} break;
-	}
-	vpu_debug_leave();
-	return 0;
-}
-#endif
-
 static int vpu_service_check_hw(struct vpu_subdev_data *data)
 {
 	int ret = -EINVAL, i = 0;
@@ -2184,9 +2027,6 @@ static const struct file_operations vpu_service_fops = {
 	.unlocked_ioctl = vpu_service_ioctl,
 	.open		= vpu_service_open,
 	.release	= vpu_service_release,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl   = compat_vpu_service_ioctl,
-#endif
 };
 
 static irqreturn_t vdpu_irq(int irq, void *dev_id);
