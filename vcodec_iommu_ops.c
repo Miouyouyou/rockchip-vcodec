@@ -52,9 +52,6 @@ int vcodec_iommu_import(struct vcodec_iommu_info *iommu_info,
 	session_info = vcodec_iommu_get_session_info(iommu_info, session);
 	if (!session_info) {
 		session_info = kzalloc(sizeof(*session_info), GFP_KERNEL);
-		printk(KERN_ERR "( Myy ) kzalloc(%d, GFP_KERNEL) → %p\n",
-			sizeof(*session_info), session_info
-		);
 		if (!session_info)
 			return -ENOMEM;
 
@@ -70,7 +67,6 @@ int vcodec_iommu_import(struct vcodec_iommu_info *iommu_info,
 		mutex_lock(&iommu_info->list_mutex);
 		list_add_tail(&session_info->head, &iommu_info->session_list);
 		mutex_unlock(&iommu_info->list_mutex);
-		printk(KERN_ERR "( Myy ) Still alive ♪\n");
 	}
 
 	session_info->debug_level = iommu_info->debug_level;
@@ -215,8 +211,7 @@ void vcodec_iommu_detach(struct vcodec_iommu_info *iommu_info)
 
 struct vcodec_iommu_info *
 vcodec_iommu_info_create(struct device *dev,
-			 struct device *mmu_dev,
-			 int alloc_type)
+			 struct device *mmu_dev)
 {
 	struct vcodec_iommu_info *iommu_info = NULL;
 
@@ -228,21 +223,7 @@ vcodec_iommu_info_create(struct device *dev,
 	INIT_LIST_HEAD(&iommu_info->session_list);
 	mutex_init(&iommu_info->list_mutex);
 	mutex_init(&iommu_info->iommu_mutex);
-	switch (alloc_type) {
-#ifdef CONFIG_DRM
-	case ALLOCATOR_USE_DRM:
-		vcodec_iommu_drm_set_ops(iommu_info);
-		break;
-#endif
-#ifdef CONFIG_ION
-	case ALLOCATOR_USE_ION:
-		vcodec_iommu_ion_set_ops(iommu_info);
-		break;
-#endif
-	default:
-		iommu_info->ops = NULL;
-		break;
-	}
+	vcodec_iommu_drm_set_ops(iommu_info);
 
 	iommu_info->mmu_dev = mmu_dev;
 

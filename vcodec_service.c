@@ -29,9 +29,6 @@
 #include <linux/reset.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#ifdef CONFIG_WAKELOCK
-#include <linux/wakelock.h>
-#endif
 #include <linux/cdev.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -366,10 +363,6 @@ struct vpu_subdev_data {
 };
 
 struct vpu_service_info {
-#ifdef CONFIG_WAKELOCK
-	struct wake_lock wake_lock;
-	struct wake_lock set_wake_lock;
-#endif
 
 	struct delayed_work power_off_work;
 	struct workqueue_struct *set_workq;
@@ -437,8 +430,6 @@ struct vpu_service_info {
 
 	u32 subcnt;
 	struct list_head subdev_list;
-
-	u32 alloc_type;
 };
 
 struct vpu_request {
@@ -814,9 +805,6 @@ static void vpu_service_power_off(struct vpu_service_info *pservice)
 #endif
 
 	atomic_add(1, &pservice->power_off_cnt);
-#ifdef CONFIG_WAKELOCK
-	wake_unlock(&pservice->wake_lock);
-#endif
 	dev_dbg(pservice->dev, "power off done\n");
 }
 
@@ -866,7 +854,7 @@ static void vpu_service_power_on(struct vpu_subdev_data *data,
 		writel_relaxed(readl_relaxed(RK_GRF_VIRT + RK312X_GRF_SOC_CON1)
 			| BIT_VCODEC_CLK_SEL | (BIT_VCODEC_CLK_SEL << 16),
 			RK_GRF_VIRT + RK312X_GRF_SOC_CON1);
-#if VCODEC_CLOCK_ENABLE
+
 	if (pservice->aclk_vcodec)
 		clk_prepare_enable(pservice->aclk_vcodec);
 	if (pservice->hclk_vcodec)
@@ -877,19 +865,16 @@ static void vpu_service_power_on(struct vpu_subdev_data *data,
 		clk_prepare_enable(pservice->clk_cabac);
 	if (pservice->pd_video)
 		clk_prepare_enable(pservice->pd_video);
-#endif
+
 	pm_runtime_get_sync(pservice->dev);
 
 	udelay(5);
 	atomic_add(1, &pservice->power_on_cnt);
-#ifdef CONFIG_WAKELOCK
-	wake_lock(&pservice->wake_lock);
-#endif
 }
 
 static inline bool reg_check_interlace(struct vpu_reg *reg)
 {
-	u32 type = (reg->reg[3] & (1 << 23));
+	u32 type = (reg->reg[3] & 0x800000);
 
 	return (type > 0);
 }
@@ -2202,34 +2187,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	if (sub_np) {
 		sub_dev = of_find_device_by_node(sub_np);
 		data->mmu_dev = &sub_dev->dev;
-		dev_info(dev, "( Myy ) Used the DTB IO moomoomoos\n");
-	}
-
-	/* Back to legacy iommu probe */
-	if (!data->mmu_dev) {
-		switch (data->mode) {
-		case VCODEC_RUNNING_MODE_VPU:
-			sprintf(mmu_dev_dts_name,
-				VPU_IOMMU_COMPATIBLE_NAME);
-			break;
-		case VCODEC_RUNNING_MODE_RKVDEC:
-			sprintf(mmu_dev_dts_name,
-				VDEC_IOMMU_COMPATIBLE_NAME);
-			break;
-		case VCODEC_RUNNING_MODE_HEVC:
-		default:
-			sprintf(mmu_dev_dts_name,
-				HEVC_IOMMU_COMPATIBLE_NAME);
-			break;
-		}
-
-		data->mmu_dev =
-			rockchip_get_sysmmu_dev(mmu_dev_dts_name);
-		if (data->mmu_dev)
-			platform_set_sysmmu(data->mmu_dev, dev);
-
-		rockchip_iovmm_set_fault_handler
-			(dev, vcodec_sysmmu_fault_hdl);
 	}
 
 	dev_info(dev, "vpu mmu dec %p\n", data->mmu_dev);
@@ -2237,11 +2194,7 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	clear_bit(MMU_ACTIVATED, &data->state);
 	vpu_service_power_on(data, pservice);
 
-	of_property_read_u32(np, "allocator", (u32 *)&pservice->alloc_type);
-	data->iommu_info = vcodec_iommu_info_create(dev, data->mmu_dev,
-						    pservice->alloc_type);
-	dev_info(dev, "allocator is %s\n", pservice->alloc_type == 1 ? "drm" :
-		(pservice->alloc_type == 2 ? "ion" : "null"));
+	data->iommu_info = vcodec_iommu_info_create(dev, data->mmu_dev);
 	vcodec_enter_mode(data);
 	ret = vpu_service_check_hw(data);
 	if (ret < 0) {
@@ -2448,9 +2401,7 @@ static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 {
 	pservice->dev_id = VCODEC_DEVICE_ID_VPU;
 	pservice->curr_mode = -1;
-#ifdef CONFIG_WAKELOCK
-	wake_lock_init(&pservice->wake_lock, WAKE_LOCK_SUSPEND, "vpu");
-#endif
+
 	INIT_LIST_HEAD(&pservice->waiting);
 	INIT_LIST_HEAD(&pservice->running);
 	mutex_init(&pservice->lock);
@@ -2470,8 +2421,6 @@ static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 
 	INIT_DELAYED_WORK(&pservice->power_off_work, vpu_power_off_work);
 	pservice->last = 0;
-
-	pservice->alloc_type = 0;
 }
 
 static int vcodec_probe(struct platform_device *pdev)
@@ -2571,9 +2520,7 @@ static int vcodec_probe(struct platform_device *pdev)
 err:
 	dev_info(dev, "init failed\n");
 	destroy_workqueue(pservice->set_workq);
-#ifdef CONFIG_WAKELOCK
-	wake_lock_destroy(&pservice->wake_lock);
-#endif
+
 	return ret;
 }
 
