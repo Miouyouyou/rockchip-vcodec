@@ -41,6 +41,7 @@ struct vcodec_iommu_ion_info {
 	bool attached;
 };
 
+/* Not ION specific ? */
 static struct vcodec_ion_buffer *
 vcodec_ion_get_buffer_no_lock(struct vcodec_iommu_session_info *session_info,
 			      int idx)
@@ -56,12 +57,14 @@ vcodec_ion_get_buffer_no_lock(struct vcodec_iommu_session_info *session_info,
 	return NULL;
 }
 
+/* Not ION specific ? */
 static void
 vcodec_ion_clear_session(struct vcodec_iommu_session_info *session_info)
 {
 	/* do nothing */
 }
 
+/* Not ION specific ? */
 static int vcodec_ion_attach(struct vcodec_iommu_info *iommu_info)
 {
 	struct vcodec_iommu_ion_info *ion_info = iommu_info->private;
@@ -83,6 +86,7 @@ static int vcodec_ion_attach(struct vcodec_iommu_info *iommu_info)
 	return ret;
 }
 
+/* Not ION specific ? */
 static void vcodec_ion_detach(struct vcodec_iommu_info *iommu_info)
 {
 	struct vcodec_iommu_ion_info *ion_info = iommu_info->private;
@@ -100,6 +104,7 @@ static void vcodec_ion_detach(struct vcodec_iommu_info *iommu_info)
 	mutex_unlock(&iommu_info->iommu_mutex);
 }
 
+/* Not ION specific ? */
 static int vcodec_ion_destroy(struct vcodec_iommu_info *iommu_info)
 {
 	struct vcodec_iommu_ion_info *ion_info = iommu_info->private;
@@ -111,6 +116,7 @@ static int vcodec_ion_destroy(struct vcodec_iommu_info *iommu_info)
 	return 0;
 }
 
+/* Not ION specific ? */
 static int
 vcodec_ion_free(struct vcodec_iommu_session_info *session_info, int idx)
 {
@@ -133,6 +139,7 @@ vcodec_ion_free(struct vcodec_iommu_session_info *session_info, int idx)
 	return 0;
 }
 
+/* ION speficic : ion_free(ion_client, ion_handle) */
 static int
 vcodec_ion_unmap_iommu(struct vcodec_iommu_session_info *session_info, int idx)
 {
@@ -155,6 +162,10 @@ vcodec_ion_unmap_iommu(struct vcodec_iommu_session_info *session_info, int idx)
 	return 0;
 }
 
+/* ION Specific :
+ * - ion_map_iommu(dev, ion_client, ion_handle, iova, size);
+ * - ion_phys(ion_info->ion_client, ion_buffer->handle, iova, size);
+ */
 static int
 vcodec_ion_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
 		     unsigned long *iova, unsigned long *size)
@@ -188,6 +199,7 @@ vcodec_ion_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
 	return ret;
 }
 
+/* Not ION specific */
 static int
 vcodec_ion_unmap_kernel(struct vcodec_iommu_session_info *session_info,
 			int idx)
@@ -207,6 +219,9 @@ vcodec_ion_unmap_kernel(struct vcodec_iommu_session_info *session_info,
 	return 0;
 }
 
+/* ION Specific :
+ * - ion_map_kernel(ion_client, ion_handle);
+ */
 static void *
 vcodec_ion_map_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 {
@@ -229,6 +244,9 @@ vcodec_ion_map_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 	return ion_map_kernel(ion_info->ion_client, ion_buffer->handle);
 }
 
+/* ION Specific :
+ * - ion_import_dma_buf(ion_client, fd);
+ */
 static int
 vcodec_ion_import(struct vcodec_iommu_session_info *session_info, int fd)
 {
@@ -252,6 +270,7 @@ vcodec_ion_import(struct vcodec_iommu_session_info *session_info, int fd)
 	return ion_buffer->index;
 }
 
+/* Unknown call : rockchip_ion_client_create(char const *); */
 static int vcodec_ion_create(struct vcodec_iommu_info *iommu_info)
 {
 	struct vcodec_iommu_ion_info *ion_info;
