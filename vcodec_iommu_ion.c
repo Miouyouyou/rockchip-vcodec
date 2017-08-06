@@ -247,8 +247,6 @@ vcodec_ion_import(struct vcodec_iommu_session_info *session_info, int fd)
 	ion_buffer->index = session_info->max_idx;
 	list_add_tail(&ion_buffer->list, &session_info->buffer_list);
 	session_info->max_idx++;
-	if ((session_info->max_idx & 0xfffffff) == 0)
-		session_info->max_idx = 0;
 	mutex_unlock(&session_info->list_mutex);
 
 	return ion_buffer->index;

@@ -352,10 +352,8 @@ struct vpu_subdev_data {
 	u32 reg_size;
 	unsigned long state;
 
-#ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_dir;
 	struct dentry *debugfs_file_regs;
-#endif
 
 	struct device *mmu_dev;
 	struct vcodec_iommu_info *iommu_info;
@@ -399,13 +397,13 @@ struct vpu_service_info {
 	struct clk *clk_cabac;
 	struct clk *pd_video;
 
-#ifdef CONFIG_RESET_CONTROLLER
+
 	struct reset_control *rst_a;
 	struct reset_control *rst_h;
 	struct reset_control *rst_v;
 	struct reset_control *rst_niu_a;
 	struct reset_control *rst_niu_h;
-#endif
+
 	struct device *dev;
 
 	u32 irq_status;
@@ -491,7 +489,6 @@ static inline int grf_combo_switch(const struct vpu_subdev_data *data)
 	u32 raw = 0;
 
 	bits = 1 << pservice->mode_bit;
-#ifdef CONFIG_MFD_SYSCON
 	if (pservice->grf) {
 		regmap_read(pservice->grf, pservice->mode_ctrl, &raw);
 
@@ -515,22 +512,6 @@ static inline int grf_combo_switch(const struct vpu_subdev_data *data)
 		vpu_err("no grf resource define, switch decoder failed\n");
 		return -EINVAL;
 	}
-#else
-	if (pservice->grf_base) {
-		u32 *grf_base = pservice->grf_base;
-
-		raw = readl_relaxed(grf_base + pservice->mode_ctrl / 4);
-		if (data->mode == VCODEC_RUNNING_MODE_HEVC)
-			writel_relaxed(raw | bits | (bits << 16),
-				       grf_base + pservice->mode_ctrl / 4);
-		else
-			writel_relaxed((raw & (~bits)) | (bits << 16),
-				       grf_base + pservice->mode_ctrl / 4);
-	} else {
-		vpu_err("no grf resource define, switch decoder failed\n");
-		return -EINVAL;
-	}
-#endif
 	return 0;
 }
 
@@ -602,7 +583,7 @@ static void vcodec_exit_mode(struct vpu_subdev_data *data)
 
 static int vpu_get_clk(struct vpu_service_info *pservice)
 {
-#if VCODEC_CLOCK_ENABLE
+
 	struct device *dev = pservice->dev;
 
 	switch (pservice->dev_id) {
@@ -655,9 +636,6 @@ static int vpu_get_clk(struct vpu_service_info *pservice)
 	}
 
 	return 0;
-#else
-	return 0;
-#endif
 }
 
 static void _vpu_reset(struct vpu_subdev_data *data)
@@ -673,7 +651,6 @@ static void _vpu_reset(struct vpu_subdev_data *data)
 	pservice->reg_pproc = NULL;
 	pservice->reg_resev = NULL;
 
-#ifdef CONFIG_RESET_CONTROLLER
 	rockchip_pmu_idle_request(pservice->dev, true);
 
 	rate = clk_get_rate(pservice->aclk_vcodec);
@@ -791,18 +768,16 @@ static void vpu_service_power_off(struct vpu_service_info *pservice)
 	}
 	pservice->curr_mode = VCODEC_RUNNING_MODE_NONE;
 	pm_runtime_put(pservice->dev);
-#if VCODEC_CLOCK_ENABLE
-		if (pservice->pd_video)
-			clk_disable_unprepare(pservice->pd_video);
-		if (pservice->hclk_vcodec)
-			clk_disable_unprepare(pservice->hclk_vcodec);
-		if (pservice->aclk_vcodec)
-			clk_disable_unprepare(pservice->aclk_vcodec);
-		if (pservice->clk_core)
-			clk_disable_unprepare(pservice->clk_core);
-		if (pservice->clk_cabac)
-			clk_disable_unprepare(pservice->clk_cabac);
-#endif
+	if (pservice->pd_video)
+		clk_disable_unprepare(pservice->pd_video);
+	if (pservice->hclk_vcodec)
+		clk_disable_unprepare(pservice->hclk_vcodec);
+	if (pservice->aclk_vcodec)
+		clk_disable_unprepare(pservice->aclk_vcodec);
+	if (pservice->clk_core)
+		clk_disable_unprepare(pservice->clk_core);
+	if (pservice->clk_cabac)
+		clk_disable_unprepare(pservice->clk_cabac);
 
 	atomic_add(1, &pservice->power_off_cnt);
 	dev_dbg(pservice->dev, "power off done\n");
@@ -2042,18 +2017,11 @@ static struct device *rockchip_get_sysmmu_dev(const char *compt)
 	return ret;
 }
 
-#ifdef CONFIG_IOMMU_API
 static inline void platform_set_sysmmu(struct device *iommu,
 				       struct device *dev)
 {
 	dev->archdata.iommu = iommu;
 }
-#else
-static inline void platform_set_sysmmu(struct device *iommu,
-				       struct device *dev)
-{
-}
-#endif
 
 int vcodec_sysmmu_fault_hdl(struct device *dev,
 			    enum rk_iommu_inttype itype,
@@ -2321,10 +2289,8 @@ static void vcodec_subdev_remove(struct vpu_subdev_data *data)
 	cdev_del(&data->cdev);
 	unregister_chrdev_region(data->dev_t, 1);
 
-#ifdef CONFIG_DEBUG_FS
 	if (!IS_ERR_OR_NULL(data->debugfs_dir))
 		debugfs_remove_recursive(data->debugfs_dir);
-#endif
 }
 
 static void vcodec_read_property(struct device_node *np,
@@ -2341,27 +2307,13 @@ static void vcodec_read_property(struct device_node *np,
 		of_property_read_u32(np, "mode_bit", &pservice->mode_bit);
 		of_property_read_u32(np, "mode_ctrl", &pservice->mode_ctrl);
 	}
-#ifdef CONFIG_MFD_SYSCON
+
 	pservice->grf = syscon_regmap_lookup_by_phandle(np, "rockchip,grf");
 	if (IS_ERR_OR_NULL(pservice->grf)) {
 		pservice->grf = NULL;
-#ifdef CONFIG_ARM
 		pservice->grf_base = RK_GRF_VIRT;
-#else
-		vpu_err("can't find vpu grf property\n");
-		return;
-#endif
 	}
-#else
-#ifdef CONFIG_ARM
-	pservice->grf_base = RK_GRF_VIRT;
-#else
-	vpu_err("can't find vpu grf property\n");
-	return;
-#endif
-#endif
 
-#ifdef CONFIG_RESET_CONTROLLER
 	pservice->rst_a = devm_reset_control_get(pservice->dev, "video_a");
 	pservice->rst_h = devm_reset_control_get(pservice->dev, "video_h");
 	pservice->rst_v = devm_reset_control_get(pservice->dev, "video");
@@ -2392,7 +2344,6 @@ static void vcodec_read_property(struct device_node *np,
 		dev_dbg(pservice->dev, "No NIU hclk reset resource define\n");
 		pservice->rst_niu_h = NULL;
 	}
-#endif
 
 	of_property_read_string(np, "name", (const char **)&pservice->name);
 }
