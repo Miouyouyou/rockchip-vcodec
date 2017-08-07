@@ -1889,6 +1889,8 @@ static long vpu_service_ioctl(struct file *filp, unsigned int cmd,
 	return 0;
 }
 
+// --- Hardware probing code
+
 static int vpu_service_check_hw(struct vpu_subdev_data *data)
 {
 	int ret = -EINVAL, i = 0;

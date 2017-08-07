@@ -89,12 +89,7 @@ struct vcodec_iommu_info {
 	void *private;
 };
 
-#ifdef CONFIG_DRM
 void vcodec_iommu_drm_set_ops(struct vcodec_iommu_info *iommu_info);
-#endif
-#ifdef CONFIG_ION
-void vcodec_iommu_ion_set_ops(struct vcodec_iommu_info *iommu_info);
-#endif
 
 struct vcodec_iommu_info *vcodec_iommu_info_create(struct device *dev,
 						   struct device *mmu_dev,

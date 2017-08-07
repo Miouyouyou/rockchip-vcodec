@@ -163,8 +163,8 @@ vcodec_ion_unmap_iommu(struct vcodec_iommu_session_info *session_info, int idx)
 }
 
 /* ION Specific :
- * - ion_map_iommu(dev, ion_client, ion_handle, iova, size);
- * - ion_phys(ion_info->ion_client, ion_buffer->handle, iova, size);
+ * - ion_map_iommu(dev, ion_client, ion_handle, iommu_iova, size);
+ * - ion_phys(ion_client, ion_handle, iommu_iova, size);
  */
 static int
 vcodec_ion_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
