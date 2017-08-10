@@ -18,10 +18,6 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
-#if 0
-#include <drm/drm_sync_helper.h>
-#include <drm/rockchip_drm.h>
-#endif
 #include <linux/dma-mapping.h>
 #include <asm/dma-iommu.h>
 #include <linux/rockchip-iovmm.h>
@@ -31,9 +27,6 @@
 #include <linux/of_address.h>
 #include <linux/of_graph.h>
 #include <linux/component.h>
-#if 0
-#include <linux/fence.h>
-#endif
 #include <linux/iommu.h>
 #include <linux/console.h>
 #include <linux/kref.h>
@@ -207,181 +200,6 @@ static void vcodec_drm_sgt_unmap_kernel(struct vcodec_drm_buffer *drm_buffer)
 {
 	vunmap(drm_buffer->cpu_addr);
 	kfree(drm_buffer->pages);
-}
-
-static int vcodec_finalise_sg(struct scatterlist *sg,
-			      int nents,
-			      dma_addr_t dma_addr)
-{
-	struct scatterlist *s, *cur = sg;
-	unsigned long seg_mask = DMA_BIT_MASK(32);
-	unsigned int cur_len = 0, max_len = DMA_BIT_MASK(32);
-	int i, count = 0;
-
-	for_each_sg(sg, s, nents, i) {
-		/* Restore this segment's original unaligned fields first */
-		unsigned int s_iova_off = sg_dma_address(s);
-		unsigned int s_length = sg_dma_len(s);
-		unsigned int s_iova_len = s->length;
-
-		s->offset += s_iova_off;
-		s->length = s_length;
-		sg_dma_address(s) = ARM_MAPPING_ERROR;
-		sg_dma_len(s) = 0;
-
-		/*
-		 * Now fill in the real DMA data. If...
-		 * - there is a valid output segment to append to
-		 * - and this segment starts on an IOVA page boundary
-		 * - but doesn't fall at a segment boundary
-		 * - and wouldn't make the resulting output segment too long
-		 */
-		if (cur_len && !s_iova_off && (dma_addr & seg_mask) &&
-		    (cur_len + s_length <= max_len)) {
-			/* ...then concatenate it with the previous one */
-			cur_len += s_length;
-		} else {
-			/* Otherwise start the next output segment */
-			if (i > 0)
-				cur = sg_next(cur);
-			cur_len = s_length;
-			count++;
-
-			sg_dma_address(cur) = dma_addr + s_iova_off;
-		}
-
-		sg_dma_len(cur) = cur_len;
-		dma_addr += s_iova_len;
-
-		if (s_length + s_iova_off < s_iova_len)
-			cur_len = 0;
-	}
-	return count;
-}
-
-static void vcodec_invalidate_sg(struct scatterlist *sg, int nents)
-{
-	struct scatterlist *s;
-	int i;
-
-	for_each_sg(sg, s, nents, i) {
-		if (sg_dma_address(s) != ARM_MAPPING_ERROR)
-			s->offset += sg_dma_address(s);
-		if (sg_dma_len(s))
-			s->length = sg_dma_len(s);
-		sg_dma_address(s) = ARM_MAPPING_ERROR;
-		sg_dma_len(s) = 0;
-	}
-}
-
-static dma_addr_t vcodec_dma_map_sg(struct iommu_domain *domain,
-				    struct scatterlist *sg,
-				    int nents, int prot)
-{
-	struct iova_domain *iovad = domain->iova_cookie;
-	struct iova *iova;
-	struct scatterlist *s, *prev = NULL;
-	dma_addr_t dma_addr;
-	size_t iova_len = 0;
-	unsigned long mask = DMA_BIT_MASK(32);
-	unsigned long shift = iova_shift(iovad);
-	int i;
-
-	/*
-	 * Work out how much IOVA space we need, and align the segments to
-	 * IOVA granules for the IOMMU driver to handle. With some clever
-	 * trickery we can modify the list in-place, but reversibly, by
-	 * stashing the unaligned parts in the as-yet-unused DMA fields.
-	 */
-	printk(KERN_ERR
-		"( Myy ) for_each_sg(%p, ??, %d, ??)\n",
-		sg, nents);
-	printk(KERN_ERR
-		"( Myy ) iovad->granule = %lu\n",
-		iovad->granule);
-	for_each_sg(sg, s, nents, i) {
-		size_t s_iova_off = iova_offset(iovad, s->offset);
-		size_t s_length = s->length;
-		size_t pad_len = (mask - iova_len + 1) & mask;
-		size_t aligned_s_length = 0;
-
-		printk(KERN_ERR
-			"( Myy ) vcodec_dma_map_sg loop [%d/%d]\n",
-			i, nents);
-		printk(KERN_ERR
-			"( Myy ) [%d/%d] (Before) iova_align(%p, %d (%d + %d))\n",
-			i, nents,
-			iovad, s_length + s_iova_off, s_length, s_iova_off);
-		sg_dma_address(s) = s_iova_off;
-		sg_dma_len(s) = s_length;
-		s->offset -= s_iova_off;
-		aligned_s_length = iova_align(iovad, s_length + s_iova_off);
-		s->length = aligned_s_length;
-
-		printk(KERN_ERR
-			"( Myy ) [%d/%d] (After) iova_align(%p, %d (%d + %d)) = %d\n",
-			i, nents,
-			iovad, s_length + s_iova_off, s_length, s_iova_off,
-			aligned_s_length);
-		/*
-		 * Due to the alignment of our single IOVA allocation, we can
-		 * depend on these assumptions about the segment boundary mask:
-		 * - If mask size >= IOVA size, then the IOVA range cannot
-		 *   possibly fall across a boundary, so we don't care.
-		 * - If mask size < IOVA size, then the IOVA range must start
-		 *   exactly on a boundary, therefore we can lay things out
-		 *   based purely on segment lengths without needing to know
-		 *   the actual addresses beforehand.
-		 * - The mask must be a power of 2, so pad_len == 0 if
-		 *   iova_len == 0, thus we cannot dereference prev the first
-		 *   time through here (i.e. before it has a meaningful value).
-		 */
-		if (pad_len && pad_len < aligned_s_length - 1) {
-			prev->length += pad_len;
-			iova_len += pad_len;
-		}
-
-		iova_len += aligned_s_length;
-		printk(KERN_ERR
-			"( Myy ) [%d/%d] iova_len = %d (+%d)\n",
-			i, nents, iova_len, aligned_s_length);
-		prev = s;
-	}
-
-	iova = alloc_iova(iovad, iova_align(iovad, iova_len) >> shift,
-					  mask >> shift, true);
-	if (!iova) {
-		printk(KERN_ERR
-			"( Myy ) iova_align(%p, %d) → %zd\n",
-			iovad, iova_len, iova_align(iovad, iova_len));
-		printk(KERN_ERR
-			"( Myy ) alloc_iova(%p, %zd, %lu, true) → %p",
-			iovad, iova_align(iovad, iova_len) >> shift, mask >> shift,
-			iova);
-		goto out_restore_sg;
-	}
-
-	/*
-	 * We'll leave any physical concatenation to the IOMMU driver's
-	 * implementation - it knows better than we do.
-	 */
-	dma_addr = iova_dma_addr(iovad, iova);
-	if (iommu_map_sg(domain, dma_addr, sg, nents, prot) < iova_len) {
-		printk(KERN_ERR
-			"( Myy ) iommu_map_sg(%p, %x, %p, %d, %d) < %d",
-			domain, dma_addr, sg, nents, prot, iova_len);
-		goto out_free_iova;
-	}
-
-	printk(KERN_ERR
-		"( Myy ) Reached the normal end of vcodec_dma_map_sg\n");
-	return vcodec_finalise_sg(sg, nents, dma_addr);
-
-out_free_iova:
-	__free_iova(iovad, iova);
-out_restore_sg:
-	vcodec_invalidate_sg(sg, nents);
-	return 0;
 }
 
 static void vcodec_dma_unmap_sg(struct iommu_domain *domain,
@@ -717,26 +535,13 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		s->offset = sg->offset;
 		s->length = sg->length;
 
-		printk(KERN_ERR
-			"( Myy ) [%d/%d] sg->length = %d\n",
-			i, sgt->nents,
-			sg->length);
-
 		s = sg_next(s);
 	}
 
-	for_each_sg(drm_buffer->copy_sgt->sgl, sg, drm_buffer->copy_sgt->nents, i) {
-		printk(KERN_ERR "( Myy ) (Copy) [%d/%d] sg->length = %d\n",
-			i, drm_buffer->copy_sgt->nents, sg->length);
-	}
-	ret = vcodec_dma_map_sg(drm_info->domain, drm_buffer->copy_sgt->sgl,
-				drm_buffer->copy_sgt->nents,
-				IOMMU_READ | IOMMU_WRITE);
-	dev_info(dev,
-		"vcodec_dma_map_sg(%p, %p, %d, IOMMU_READ | IOMMU_WRITE) → %d\n",
-		drm_info->domain, drm_buffer->copy_sgt->sgl,
+	ret = iommu_dma_map_sg(dev, drm_buffer->copy_sgt->sgl,
 		drm_buffer->copy_sgt->nents,
-		ret);
+		IOMMU_READ | IOMMU_WRITE);
+
 	if (!ret) {
 		ret = -ENOMEM;
 		goto fail_alloc;
@@ -810,41 +615,11 @@ static int vcodec_drm_create(struct vcodec_iommu_info *iommu_info)
 	drm_info->attached = false;
 	if (!drm_info->domain)
 		return -ENOMEM;
-#ifdef CONFIG_IOMMU_DMA
+
 	ret = iommu_get_dma_cookie(drm_info->domain);
 	if (ret)
 		goto err_free_domain;
-#else
-	{
-		unsigned long order, base_pfn, end_pfn;
-		dma_addr_t base;
-		u64 size;
 
-		base = 0x10000000;
-		size = SZ_2G;
-
-		order = __ffs(drm_info->domain->ops->pgsize_bitmap);
-		base_pfn = max_t(unsigned long, 1, base >> order);
-		end_pfn = (base + size - 1) >> order;
-
-		/* Check the domain allows at least some access to the device... */
-		if (drm_info->domain->geometry.force_aperture) {
-			if (base > drm_info->domain->geometry.aperture_end ||
-			base + size <= drm_info->domain->geometry.aperture_start) {
-				pr_warn("specified DMA range outside IOMMU capability\n");
-				return -EFAULT;
-			}
-			/* ...then finally give it a kicking to make sure it fits */
-			base_pfn = max_t(unsigned long, base_pfn,
-					drm_info->domain->geometry.aperture_start >> order);
-			end_pfn = min_t(unsigned long, end_pfn,
-					drm_info->domain->geometry.aperture_end >> order);
-		}
-		drm_info->domain->iova_cookie = kzalloc(sizeof(struct iova_domain), GFP_KERNEL);
-		init_iova_domain(drm_info->domain->iova_cookie, 1UL << order, base_pfn, end_pfn);
-		iova_cache_get();
-	}
-#endif
 	group = iommu_group_get(iommu_info->dev);
 	if (!group) {
 		group = iommu_group_alloc();
@@ -860,17 +635,16 @@ static int vcodec_drm_create(struct vcodec_iommu_info *iommu_info)
 			goto err_put_cookie;
 		}
 	}
-#ifdef CONFIG_IOMMU_DMA
+
 	iommu_dma_init_domain(drm_info->domain, 0x10000000, SZ_2G, iommu_info->dev);
-#endif
+
 	iommu_group_put(group);
 
 	return 0;
 
 err_put_cookie:
-#ifdef CONFIG_IOMMU_DMA
 	iommu_put_dma_cookie(drm_info->domain);
-#endif
+
 err_free_domain:
 	iommu_domain_free(drm_info->domain);
 
@@ -880,11 +654,9 @@ err_free_domain:
 static int vcodec_drm_destroy(struct vcodec_iommu_info *iommu_info)
 {
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
-#ifdef CONFIG_IOMMU_DMA
+
 	iommu_put_dma_cookie(drm_info->domain);
-#else
-	iova_cache_put();
-#endif
+
 	iommu_domain_free(drm_info->domain);
 
 	kfree(drm_info);
