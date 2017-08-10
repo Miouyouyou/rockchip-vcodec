@@ -594,21 +594,6 @@ static int vpu_get_clk(struct vpu_service_info *pservice)
 			pservice->pd_video = NULL;
 			dev_dbg(dev, "failed on clk_get pd_hevc\n");
 		}
-	case VCODEC_DEVICE_ID_COMBO:
-	case VCODEC_DEVICE_ID_RKVDEC:
-		pservice->clk_cabac = devm_clk_get(dev, "clk_cabac");
-		if (IS_ERR(pservice->clk_cabac)) {
-			dev_err(dev, "failed on clk_get clk_cabac\n");
-			pservice->clk_cabac = NULL;
-		}
-		pservice->clk_core = devm_clk_get(dev, "clk_core");
-		if (IS_ERR(pservice->clk_core)) {
-			dev_err(dev, "failed on clk_get clk_core\n");
-			pservice->clk_core = NULL;
-			/* The VDPU and AVSD combo doesn't need those clocks */
-			if (pservice->dev_id == VCODEC_DEVICE_ID_RKVDEC)
-				return -1;
-		}
 	case VCODEC_DEVICE_ID_VPU:
 		pservice->aclk_vcodec = devm_clk_get(dev, "aclk_vcodec");
 		if (IS_ERR(pservice->aclk_vcodec)) {
@@ -2131,9 +2116,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	case VCODEC_DEVICE_ID_HEVC:
 		data->mode = VCODEC_RUNNING_MODE_HEVC;
 		break;
-	case VCODEC_DEVICE_ID_RKVDEC:
-		data->mode = VCODEC_RUNNING_MODE_RKVDEC;
-		break;
 	case VCODEC_DEVICE_ID_COMBO:
 	default:
 		of_property_read_u32(np, "dev_mode", (u32 *)&data->mode);
@@ -2410,14 +2392,8 @@ static int vcodec_probe(struct platform_device *pdev)
 	case VCODEC_DEVICE_TYPE_VPUX:
 		pservice->dev_id = VCODEC_DEVICE_ID_VPU;
 		break;
-	case VCODEC_DEVICE_TYPE_VPUC:
-		pservice->dev_id = VCODEC_DEVICE_ID_COMBO;
-		break;
 	case VCODEC_DEVICE_TYPE_HEVC:
 		pservice->dev_id = VCODEC_DEVICE_ID_HEVC;
-		break;
-	case VCODEC_DEVICE_TYPE_RKVD:
-		pservice->dev_id = VCODEC_DEVICE_ID_RKVDEC;
 		break;
 	default:
 		dev_err(dev, "unsupported device type\n");

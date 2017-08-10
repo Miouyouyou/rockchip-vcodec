@@ -81,14 +81,14 @@ struct vcodec_iommu_drm_info {
 /* Just driver specific. Nothing to do with DRM per-se. */
 static struct vcodec_drm_buffer *
 vcodec_standard_get_buffer_no_lock
-(struct vcodec_iommu_sessdrm_info * sessdrm_info, int idx)
+(struct vcodec_iommu_session_info * session_info, int idx)
 {
 	struct vcodec_drm_buffer *drm_buffer = NULL, *n;
 
 	/* Can't we just use GEM naming facilities to get the right buffer
 	 * each time ? */
 	list_for_each_entry_safe(drm_buffer, n,
-				 &sessdrm_info->buffer_list, list) {
+				 &session_info->buffer_list, list) {
 		if (drm_buffer->index == idx)
 			return drm_buffer;
 	}
@@ -98,7 +98,7 @@ vcodec_standard_get_buffer_no_lock
 
 /* Not DRM specific */
 static void vcodec_standard_clear_session
-(struct vcodec_iommu_sessdrm_info *sessdrm_info)
+(struct vcodec_iommu_session_info *session_info)
 {
 	/* do nothing */
 }
@@ -156,22 +156,22 @@ static int vcodec_standard_destroy(struct vcodec_iommu_info *iommu_info)
 }
 
 static int vcodec_standard_free
-(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx)
+(struct vcodec_iommu_session_info *session_info, int idx)
 {
 	struct vcodec_drm_buffer *drm_buffer;
 
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer = vcodec_drm_get_buffer_no_lock(sessdrm_info, idx);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
 
 	if (!drm_buffer) {
-		mutex_unlock(&sessdrm_info->list_mutex);
+		mutex_unlock(&session_info->list_mutex);
 		pr_err("%s can not find %d buffer in list\n", __func__, idx);
 
 		return -EINVAL;
 	}
 
 	list_del_init(&drm_buffer->list);
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_unlock(&session_info->list_mutex);
 	kfree(drm_buffer);
 
 	return 0;
@@ -179,15 +179,15 @@ static int vcodec_standard_free
 
 /* ION speficic : drm_free(drm_client, drm_handle) */
 static int
-vcodec_drm_unmap_iommu(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx)
+vcodec_drm_unmap_iommu(struct vcodec_iommu_session_info *session_info, int idx)
 {
 	struct vcodec_drm_buffer *drm_buffer;
-	struct vcodec_iommu_info *iommu_info = sessdrm_info->iommu_info;
+	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
 
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer = vcodec_drm_get_buffer_no_lock(sessdrm_info, idx);
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
+	mutex_unlock(&session_info->list_mutex);
 
 	if (!drm_buffer) {
 		pr_err("%s can not find %d buffer in list\n", __func__, idx);
@@ -202,27 +202,27 @@ vcodec_drm_unmap_iommu(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx)
 }
 
 static int
-vcodec_drm_map_iommu(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx,
+vcodec_drm_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
 		     unsigned long *iova, unsigned long *size)
 {
 	struct vcodec_drm_buffer *drm_buffer;
-	struct device *dev = sessdrm_info->dev;
-	struct vcodec_iommu_info *iommu_info = sessdrm_info->iommu_info;
+	struct device *dev = session_info->dev;
+	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
 	int ret = 0;
 
 	/* Force to flush iommu table
 	 * Was :
-	 * rockchip_iovmm_invalidate_tlb(sessdrm_info->dev);
+	 * rockchip_iovmm_invalidate_tlb(session_info->dev);
 	 * Which roughly equates to :
 	 * rk_iommu_base_command(iommu->bases[i], RK_MMU_CMD_ZAP_CACHE);
 	 * Solution :
 	 * ???
 	 */
   
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer = vcodec_drm_get_buffer_no_lock(sessdrm_info, idx);
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
+	mutex_unlock(&session_info->list_mutex);
 
 	if (!drm_buffer) {
 		pr_err("%s can not find %d buffer in list\n", __func__, idx);
@@ -242,14 +242,14 @@ vcodec_drm_map_iommu(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx,
 
 /* Not ION specific */
 static int
-vcodec_drm_unmap_kernel(struct vcodec_iommu_sessdrm_info *sessdrm_info,
+vcodec_drm_unmap_kernel(struct vcodec_iommu_session_info *session_info,
 			int idx)
 {
 	struct vcodec_drm_buffer *drm_buffer;
 
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer = vcodec_drm_get_buffer_no_lock(sessdrm_info, idx);
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
+	mutex_unlock(&session_info->list_mutex);
 
 	if (!drm_buffer) {
 		pr_err("%s can not find %d buffer in list\n", __func__, idx);
@@ -264,17 +264,17 @@ vcodec_drm_unmap_kernel(struct vcodec_iommu_sessdrm_info *sessdrm_info,
  * - drm_map_kernel(drm_client, drm_handle);
  */
 static void *
-vcodec_drm_map_kernel(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx)
+vcodec_drm_map_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 {
 	struct vcodec_drm_buffer *drm_buffer;
-	struct vcodec_iommu_info *iommu_info = sessdrm_info->iommu_info;
+	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
 
-	rockchip_iovmm_invalidate_tlb(sessdrm_info->dev);
+	rockchip_iovmm_invalidate_tlb(session_info->dev);
 
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer = get_buffer_no_lock(sessdrm_info, idx);
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer = get_buffer_no_lock(session_info, idx);
+	mutex_unlock(&session_info->list_mutex);
 
 	if (!drm_buffer) {
 		pr_err("%s can not find %d buffer in list\n", __func__, idx);
@@ -289,10 +289,10 @@ vcodec_drm_map_kernel(struct vcodec_iommu_sessdrm_info *sessdrm_info, int idx)
  * - drm_import_dma_buf(drm_client, fd);
  */
 static int
-vcodec_drm_import(struct vcodec_iommu_sessdrm_info *sessdrm_info, int fd)
+vcodec_drm_import(struct vcodec_iommu_session_info *session_info, int fd)
 {
 	struct vcodec_drm_buffer *drm_buffer = NULL;
-	struct vcodec_iommu_info *iommu_info = sessdrm_info->iommu_info;
+	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
 	struct dma_buf * buf_buf = dma_buf_from(fd);
 
@@ -305,11 +305,11 @@ vcodec_drm_import(struct vcodec_iommu_sessdrm_info *sessdrm_info, int fd)
 		drm_gem_import_dma_buf(drm_info->drm_client, buf_buf);
 
 	INIT_LIST_HEAD(&drm_buffer->list);
-	mutex_lock(&sessdrm_info->list_mutex);
-	drm_buffer->index = sessdrm_info->max_idx;
-	list_add_tail(&drm_buffer->list, &sessdrm_info->buffer_list);
-	sessdrm_info->max_idx++;
-	mutex_unlock(&sessdrm_info->list_mutex);
+	mutex_lock(&session_info->list_mutex);
+	drm_buffer->index = session_info->max_idx;
+	list_add_tail(&drm_buffer->list, &session_info->buffer_list);
+	session_info->max_idx++;
+	mutex_unlock(&session_info->list_mutex);
 
 	return drm_buffer->index;
 }
