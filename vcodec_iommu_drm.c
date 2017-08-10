@@ -20,7 +20,6 @@
 #include <drm/drm_fb_helper.h>
 #include <linux/dma-mapping.h>
 #include <asm/dma-iommu.h>
-#include <linux/rockchip-iovmm.h>
 #include <linux/pm_runtime.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
@@ -36,6 +35,9 @@
 #include <linux/dma-iommu.h>
 
 #include "vcodec_iommu_ops.h"
+
+#define show_enter_func(device) dev_info(device, "→ [%s]\n", __func__)
+#define show_exit_func(device)  dev_info(device, "← [%s]\n", __func__)
 
 struct vcodec_drm_buffer {
 	struct list_head list;
@@ -67,6 +69,7 @@ vcodec_drm_get_buffer_no_lock(struct vcodec_iommu_session_info *session_info,
 {
 	struct vcodec_drm_buffer *drm_buffer = NULL, *n;
 
+	show_enter_func(session_info->dev);
 	list_for_each_entry_safe(drm_buffer, n, &session_info->buffer_list,
 				 list) {
 		if (drm_buffer->index == idx) {
@@ -74,7 +77,7 @@ vcodec_drm_get_buffer_no_lock(struct vcodec_iommu_session_info *session_info,
 			return drm_buffer;
 		}
 	}
-
+	show_exit_func(session_info->dev);
 	return NULL;
 }
 
@@ -85,6 +88,7 @@ vcodec_drm_get_buffer_fd_no_lock(struct vcodec_iommu_session_info *session_info,
 	struct vcodec_drm_buffer *drm_buffer = NULL, *n;
 	struct dma_buf *dma_buf = NULL;
 
+	show_enter_func(session_info->dev);
 	dma_buf = dma_buf_get(fd);
 
 	list_for_each_entry_safe(drm_buffer, n, &session_info->buffer_list,
@@ -97,7 +101,7 @@ vcodec_drm_get_buffer_fd_no_lock(struct vcodec_iommu_session_info *session_info,
 	}
 
 	dma_buf_put(dma_buf);
-
+	show_exit_func(session_info->dev);
 	return NULL;
 }
 
@@ -107,6 +111,7 @@ static void vcodec_drm_detach(struct vcodec_iommu_info *iommu_info)
 	struct device *dev = iommu_info->dev;
 	struct iommu_domain *domain = drm_info->domain;
 
+	show_enter_func(iommu_info->dev);
 	mutex_lock(&iommu_info->iommu_mutex);
 
 	if (!drm_info->attached) {
@@ -118,6 +123,7 @@ static void vcodec_drm_detach(struct vcodec_iommu_info *iommu_info)
 	drm_info->attached = false;
 
 	mutex_unlock(&iommu_info->iommu_mutex);
+	show_exit_func(iommu_info->dev);
 }
 
 static int vcodec_drm_attach_unlock(struct vcodec_iommu_info *iommu_info)
@@ -127,6 +133,7 @@ static int vcodec_drm_attach_unlock(struct vcodec_iommu_info *iommu_info)
 	struct iommu_domain *domain = drm_info->domain;
 	int ret = 0;
 
+	show_enter_func(iommu_info->dev);
 	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	if (ret)
 		return ret;
@@ -138,6 +145,7 @@ static int vcodec_drm_attach_unlock(struct vcodec_iommu_info *iommu_info)
 		return ret;
 	}
 
+	show_exit_func(iommu_info->dev);
 	return ret;
 }
 
@@ -146,6 +154,7 @@ static int vcodec_drm_attach(struct vcodec_iommu_info *iommu_info)
 	struct vcodec_iommu_drm_info *drm_info = iommu_info->private;
 	int ret;
 
+	show_enter_func(iommu_info->dev);
 	mutex_lock(&iommu_info->iommu_mutex);
 
 	if (drm_info->attached) {
@@ -163,6 +172,7 @@ static int vcodec_drm_attach(struct vcodec_iommu_info *iommu_info)
 
 	mutex_unlock(&iommu_info->iommu_mutex);
 
+	show_exit_func(iommu_info->dev);
 	return ret;
 }
 
@@ -305,8 +315,13 @@ vcodec_drm_unmap_iommu(struct vcodec_iommu_session_info *session_info,
 	struct vcodec_drm_buffer *drm_buffer;
 
 	/* Force to flush iommu table */
-	if (of_machine_is_compatible("rockchip,rk3288"))
-		rockchip_iovmm_invalidate_tlb(session_info->mmu_dev);
+	/* No public Rockchip IOMMU function provides this functionnality
+	 * it seems...
+	 * TODO Make the "zap" functions of the Rockchip IOMMU code public ?
+	 * -- Myy
+	 */
+	/*if (of_machine_is_compatible("rockchip,rk3288"))
+		rockchip_iovmm_invalidate_tlb(session_info->mmu_dev);*/
 
 	mutex_lock(&session_info->list_mutex);
 	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
@@ -331,8 +346,13 @@ static int vcodec_drm_map_iommu(struct vcodec_iommu_session_info *session_info,
 	struct vcodec_drm_buffer *drm_buffer;
 
 	/* Force to flush iommu table */
-	if (of_machine_is_compatible("rockchip,rk3288"))
-		rockchip_iovmm_invalidate_tlb(session_info->mmu_dev);
+	/* No public Rockchip IOMMU function provides this functionnality
+	 * it seems...
+	 * TODO Make the "zap" functions of the Rockchip IOMMU code public ?
+	 * -- Myy
+	 */
+	/*if (of_machine_is_compatible("rockchip,rk3288"))
+		rockchip_iovmm_invalidate_tlb(session_info->mmu_dev);*/
 
 	mutex_lock(&session_info->list_mutex);
 	drm_buffer = vcodec_drm_get_buffer_no_lock(session_info, idx);
@@ -538,7 +558,13 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		s = sg_next(s);
 	}
 
-	ret = iommu_dma_map_sg(dev, drm_buffer->copy_sgt->sgl,
+	// The real problem
+	if (iommu_get_domain_for_dev(iommu_info->dev) == NULL)
+		dev_err(iommu_info->dev,
+			"How about initializing the IOMMU domain, you idiot\n");
+
+	// The crash
+	ret = iommu_dma_map_sg(iommu_info->dev, drm_buffer->copy_sgt->sgl,
 		drm_buffer->copy_sgt->nents,
 		IOMMU_READ | IOMMU_WRITE);
 
@@ -605,6 +631,7 @@ static int vcodec_drm_create(struct vcodec_iommu_info *iommu_info)
 	struct iommu_group *group;
 	int ret;
 
+	dev_info(iommu_info->dev, "→ [vcodec_drm_create]\n");
 	iommu_info->private = kzalloc(sizeof(*drm_info),
 				      GFP_KERNEL);
 	drm_info = iommu_info->private;
@@ -635,10 +662,17 @@ static int vcodec_drm_create(struct vcodec_iommu_info *iommu_info)
 			goto err_put_cookie;
 		}
 	}
+	else {
+		iommu_group_put(group);
+		dev_info(iommu_info->dev, "iommu_group_put(%p)\n", group);
+	}
 
-	iommu_dma_init_domain(drm_info->domain, 0x10000000, SZ_2G, iommu_info->dev);
+	ret = iommu_dma_init_domain(drm_info->domain, 0x10000000, SZ_2G, iommu_info->mmu_dev);
+	dev_info(iommu_info->dev, "iommu_dma_init_domain → %d\n", ret);
 
-	iommu_group_put(group);
+	if (iommu_get_domain_for_dev(iommu_info->mmu_dev) == NULL)
+		dev_err(iommu_info->dev,
+			"Something went dead wrong during the initialization\n");
 
 	return 0;
 

@@ -220,6 +220,8 @@ vcodec_iommu_info_create(struct device *dev,
 {
 	struct vcodec_iommu_info *iommu_info = NULL;
 
+	dev_info(dev, "Hello I'm Dev\n");
+	dev_info(mmu_dev, "Hello I'm his brother, MMU Dev\n");
 	iommu_info = kzalloc(sizeof(*iommu_info), GFP_KERNEL);
 	if (!iommu_info)
 		return NULL;

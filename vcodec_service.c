@@ -43,12 +43,10 @@
 #include <linux/pm_runtime.h>
 #include <linux/iopoll.h>
 
-#include <linux/rockchip/cru.h>
-#include <linux/rockchip/pmu.h>
-#include <linux/rockchip/grf.h>
-
 #include <linux/dma-buf.h>
-#include <linux/rockchip-iovmm.h>
+
+// rockchip_pmu_idle_request
+#include <linux/rockchip_pmu.h>
 
 #include "vcodec_hw_info.h"
 #include "vcodec_hw_vpu.h"
@@ -58,6 +56,12 @@
 #include "vcodec_service.h"
 
 #include "vcodec_iommu_ops.h"
+
+/* Only needed for the combo_switch function, for reasons I don't get.
+ * -- Myy
+ */
+
+#define RK_GRF_VIRT ((void __force __iomem *)(0xFED10000))
 
 /*
  * debug flag usage:
@@ -872,11 +876,6 @@ static void vpu_service_power_on(struct vpu_subdev_data *data,
 
 	dev_dbg(pservice->dev, "power on\n");
 
-#define BIT_VCODEC_CLK_SEL	(1<<10)
-	if (of_machine_is_compatible("rockchip,rk3126"))
-		writel_relaxed(readl_relaxed(RK_GRF_VIRT + RK312X_GRF_SOC_CON1)
-			| BIT_VCODEC_CLK_SEL | (BIT_VCODEC_CLK_SEL << 16),
-			RK_GRF_VIRT + RK312X_GRF_SOC_CON1);
 #if VCODEC_CLOCK_ENABLE
 	if (pservice->aclk_vcodec)
 		clk_prepare_enable(pservice->aclk_vcodec);
@@ -2195,111 +2194,10 @@ static irqreturn_t vepu_irq(int irq, void *dev_id);
 static irqreturn_t vepu_isr(int irq, void *dev_id);
 static void get_hw_info(struct vpu_subdev_data *data);
 
-static struct device *rockchip_get_sysmmu_dev(const char *compt)
-{
-	struct device_node *dn = NULL;
-	struct platform_device *pd = NULL;
-	struct device *ret = NULL;
-
-	dn = of_find_compatible_node(NULL, NULL, compt);
-	if (!dn) {
-		pr_err("can't find device node %s \r\n", compt);
-		return NULL;
-	}
-
-	pd = of_find_device_by_node(dn);
-	if (!pd) {
-		pr_err("can't find platform device in device node %s\n", compt);
-		return  NULL;
-	}
-	ret = &pd->dev;
-
-	return ret;
-}
-
-#ifdef CONFIG_IOMMU_API
 static inline void platform_set_sysmmu(struct device *iommu,
 				       struct device *dev)
 {
 	dev->archdata.iommu = iommu;
-}
-#else
-static inline void platform_set_sysmmu(struct device *iommu,
-				       struct device *dev)
-{
-}
-#endif
-
-int vcodec_sysmmu_fault_hdl(struct device *dev,
-			    enum rk_iommu_inttype itype,
-			    unsigned long pgtable_base,
-			    unsigned long fault_addr, unsigned int status)
-{
-	struct platform_device *pdev;
-	struct vpu_service_info *pservice;
-	struct vpu_subdev_data *data;
-
-	vpu_debug_enter();
-
-	if (dev == NULL) {
-		pr_err("invalid NULL dev\n");
-		return 0;
-	}
-
-	pdev = container_of(dev, struct platform_device, dev);
-	if (pdev == NULL) {
-		pr_err("invalid NULL platform_device\n");
-		return 0;
-	}
-
-	data = platform_get_drvdata(pdev);
-	if (data == NULL) {
-		pr_err("invalid NULL vpu_subdev_data\n");
-		return 0;
-	}
-
-	pservice = data->pservice;
-	if (pservice == NULL) {
-		pr_err("invalid NULL vpu_service_info\n");
-		return 0;
-	}
-
-	if (pservice->reg_codec) {
-		struct vpu_reg *reg = pservice->reg_codec;
-		struct vcodec_mem_region *mem, *n;
-		int i = 0;
-
-		pr_err("vcodec, fault addr 0x%08lx\n", fault_addr);
-		if (!list_empty(&reg->mem_region_list)) {
-			list_for_each_entry_safe(mem, n, &reg->mem_region_list,
-						 reg_lnk) {
-				pr_err("vcodec, reg[%02u] mem region [%02d] 0x%lx %lx\n",
-				       mem->reg_idx, i, mem->iova, mem->len);
-				i++;
-			}
-		} else {
-			pr_err("no memory region mapped\n");
-		}
-
-		if (reg->data) {
-			struct vpu_subdev_data *data = reg->data;
-			u32 *base = (u32 *)data->dec_dev.regs;
-			u32 len = data->hw_info->dec_reg_num;
-
-			pr_err("current errror register set:\n");
-
-			for (i = 0; i < len; i++)
-				pr_err("reg[%02d] %08x\n",
-				       i, readl_relaxed(base + i));
-		}
-
-		pr_alert("vcodec, page fault occur, reset hw\n");
-
-		/* reg->reg[101] = 1; */
-		_vpu_reset(data);
-	}
-
-	return 0;
 }
 
 static int vcodec_subdev_probe(struct platform_device *pdev,
@@ -2316,7 +2214,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 	struct platform_device *sub_dev = NULL;
 	struct device_node *sub_np = NULL;
 	const char *name  = np->name;
-	char mmu_dev_dts_name[40];
 
 	dev_info(dev, "probe device");
 
@@ -2363,33 +2260,6 @@ static int vcodec_subdev_probe(struct platform_device *pdev,
 		sub_dev = of_find_device_by_node(sub_np);
 		data->mmu_dev = &sub_dev->dev;
 		dev_info(dev, "( Myy ) Used the DTB IO moomoomoos\n");
-	}
-
-	/* Back to legacy iommu probe */
-	if (!data->mmu_dev) {
-		switch (data->mode) {
-		case VCODEC_RUNNING_MODE_VPU:
-			sprintf(mmu_dev_dts_name,
-				VPU_IOMMU_COMPATIBLE_NAME);
-			break;
-		case VCODEC_RUNNING_MODE_RKVDEC:
-			sprintf(mmu_dev_dts_name,
-				VDEC_IOMMU_COMPATIBLE_NAME);
-			break;
-		case VCODEC_RUNNING_MODE_HEVC:
-		default:
-			sprintf(mmu_dev_dts_name,
-				HEVC_IOMMU_COMPATIBLE_NAME);
-			break;
-		}
-
-		data->mmu_dev =
-			rockchip_get_sysmmu_dev(mmu_dev_dts_name);
-		if (data->mmu_dev)
-			platform_set_sysmmu(data->mmu_dev, dev);
-
-		rockchip_iovmm_set_fault_handler
-			(dev, vcodec_sysmmu_fault_hdl);
 	}
 
 	dev_info(dev, "vpu mmu dec %p\n", data->mmu_dev);
