@@ -25,6 +25,7 @@ INSTALL_HDR_PATH ?= $(INSTALL_MOD_PATH)/usr
 ccflags-y += -I${src}/include -DCONFIG_DRM=1
 
 # Determine what's needed to compile rk-vcodec.o
+# Every '.o' file corresponds to a '.c' file.
 rk-vcodec-objs := vcodec_service.o vcodec_iommu_ops.o
 rk-vcodec-objs += vcodec_iommu_drm.o
 

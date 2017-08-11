@@ -112,5 +112,12 @@ struct vpu_enc_config {
 	u32 reserv[2];
 };
 
+#define print_enter_func(device) dev_info(device, "→ [%s]\n", __func__)
+#define print_exit_func(device)  dev_info(device, "← [%s]\n", __func__)
+#define print_exit_func_with_issue(device) \
+  dev_err(device, "← [%s]\n", __func__)
+#define print_enter_func_direct printk(KERN_INFO "→ [%s]\n", __func__)
+#define print_exit_func_direct printk(KERN_INFO "← [%s]\n", __func__)
+
 #endif
 

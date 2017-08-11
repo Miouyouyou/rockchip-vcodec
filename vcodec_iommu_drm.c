@@ -36,11 +36,6 @@
 
 #include "vcodec_iommu_ops.h"
 
-#define print_enter_func(device) dev_info(device, "→ [%s]\n", __func__)
-#define print_exit_func(device)  dev_info(device, "← [%s]\n", __func__)
-#define print_exit_func_with_issue(device) \
-  dev_err(device, "← [%s]\n", __func__)
-
 struct vcodec_drm_buffer {
 	struct list_head list;
 	struct dma_buf *dma_buf;
