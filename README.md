@@ -37,49 +37,47 @@ You'll need a patched kernel anyway if you want to test this VPU code.
 The patches required are in the [kernel_patches](./kernel_patches)
 directory.
 
-# Compilation
+# Build
 
-## If you're cross-compiling
-
-If you're cross-compiling this module, first set the `ARCH` and 
-`CROSS_COMPILE` variables. If you're compiling from the Rockchip board
-itself, skip this example.
-
-Example :
-
-``bash
-export ARCH=arm 
+You'll need to edit the Makefile and check the following variables :
+```make
+MYY_KERNEL_DIR
+ARCH
+CROSS_COMPILE
+```
+or export these variables before :
+```bash
+export MYY_KERNEL_DIR=/path/to/my/arm/linux
+export ARCH=arm
 export CROSS_COMPILE=armv7a-hardfloat-linux-gnueabi-
-``
+```
 
-## Anyway
+## Clean up
 
-To compile this module, type the following :
+`make clean`
 
-    make M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
+## Compilation
 
-The command will generate a 'rk-vcodec.ko' file that you can `insmod`
-on the Rockchip board executing the kernel generated from the sources
-you specified.
+`make`
 
-# Installation
+## Installation
 
-## If you're cross-compiling
+Copy all the module files to your ARM system and load them from there.
 
-Type the following command as **root**
+Something like :
 
-    make INSTALL_PATH=/install_root M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m
+```bash
+scp rk-vcodec.ko my_rk3288_board:/tmp
+```
 
-Note that this will install `extra/rk-vcodec.ko`, along with the others
-kernel modules, in `/install_root/lib/modules/kernel_version/kernel`. 
-Once you copy the modules directory in the board's `/lib` directory, 
-you'll be able to modprobe the module directly from the board.
+# Loading the module
 
-The kernel will also try to auto-load the module when possible.
+Following the previous SCP example :
 
-## If you're compiling directly
+```bash
+ssh my_rk3288_board
+# Once connected to the board through SSH
+sudo insmod /tmp/rk-vcodec.ko
+```
 
-    make M=$PWD -C /path/to/linux/sources CONFIG_RK_VCODEC=m modules_install
-
-The module will then be loaded at boot. You can still load it directly through
-`modprobe rk-vcodec`.
+If you have a direct access to the board, just type the last command.

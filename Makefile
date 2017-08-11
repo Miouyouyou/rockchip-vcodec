@@ -1,6 +1,6 @@
-# Change this variable by the path to your kernel.
+# Set this variable with the path to your kernel.
 # Don't use /usr/src/linux if you're cross-compiling...
-MYY_KERNEL_DIR = ../linux
+MYY_KERNEL_DIR ?= ../linux
 
 # If you're compiling for ARM64, this will be arm64
 ARCH ?= arm
@@ -9,7 +9,9 @@ ARCH ?= arm
 # In my case, gcc is armv7a-hardfloat-linux-gnueabi-gcc
 # If you've installed cross-compiling tools and don't know your 
 # prefix, just type "arm" in a shell, hit <TAB> twice
-# If you're on an ARM system already, delete the characters after "?="
+#
+# If you're compiling from ARM system with the same architecture
+# (arm on arm or arm64 on arm64) delete the characters after "?="
 CROSS_COMPILE ?= armv7a-hardfloat-linux-gnueabi-
 
 # The modules will be installed in $(INSTALL_MOD_PATH)/lib/...
@@ -42,3 +44,4 @@ clean:
 # your ARM system.
 install:
 	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
+#	scp *.ko 10.100.0.55:/tmp
