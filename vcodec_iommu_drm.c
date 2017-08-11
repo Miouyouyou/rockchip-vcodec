@@ -513,6 +513,7 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	struct scatterlist *sg, *s;
 	int i;
 	int ret = 0;
+	struct iommu_domain *domain = drm_info->domain;
 
 	print_enter_func(dev);
 	dma_buf = dma_buf_get(fd);
@@ -589,12 +590,16 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	}
 
 	// The real problem
-	if (iommu_get_domain_for_dev(iommu_info->dev) == NULL)
+	// iommu_get_domain_for_dev NEVER works...
+	/*if (iommu_get_domain_for_dev(iommu_info->dev) == NULL)
 		dev_err(iommu_info->dev,
-			"How about initializing the IOMMU domain, you idiot\n");
+			"How about initializing the IOMMU domain, you idiot\n");*/
 
 	// The crash
-	ret = iommu_dma_map_sg(iommu_info->dev, drm_buffer->copy_sgt->sgl,
+	// So we can't use iommu_dma_map_sg...
+	
+	ret = myy_iommu_dma_map_sg(drm_info->domain,
+		iommu_info->dev, drm_buffer->copy_sgt->sgl,
 		drm_buffer->copy_sgt->nents,
 		IOMMU_READ | IOMMU_WRITE);
 
