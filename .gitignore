@@ -16,3 +16,5 @@ modules.order
 .cproject
 .project
 .settings
+*.kdev4
+.kdev4

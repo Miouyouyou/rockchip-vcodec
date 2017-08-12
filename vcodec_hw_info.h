@@ -217,7 +217,7 @@ struct vcodec_info {
 
 struct vcodec_device_info {
 	int32_t device_type;
-	int8_t *name;
+	const char * const name;
 };
 
 #define DEF_FMT_TRANS_TBL(fmt, args...) \

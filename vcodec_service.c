@@ -29,9 +29,7 @@
 #include <linux/reset.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#ifdef CONFIG_WAKELOCK
-#include <linux/wakelock.h>
-#endif
+
 #include <linux/cdev.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -370,10 +368,6 @@ struct vpu_subdev_data {
 };
 
 struct vpu_service_info {
-#ifdef CONFIG_WAKELOCK
-	struct wake_lock wake_lock;
-	struct wake_lock set_wake_lock;
-#endif
 
 	struct delayed_work power_off_work;
 	struct workqueue_struct *set_workq;
@@ -410,13 +404,12 @@ struct vpu_service_info {
 	struct clk *clk_cabac;
 	struct clk *pd_video;
 
-#ifdef CONFIG_RESET_CONTROLLER
 	struct reset_control *rst_a;
 	struct reset_control *rst_h;
 	struct reset_control *rst_v;
 	struct reset_control *rst_niu_a;
 	struct reset_control *rst_niu_h;
-#endif
+
 	struct device *dev;
 
 	u32 irq_status;
@@ -449,13 +442,6 @@ struct vpu_request {
 	u32 *req;
 	u32 size;
 };
-
-#ifdef CONFIG_COMPAT
-struct compat_vpu_request {
-	compat_uptr_t req;
-	u32 size;
-};
-#endif
 
 #define VDPU_SOFT_RESET_REG	101
 #define VDPU_CLEAN_CACHE_REG	516
@@ -858,9 +844,7 @@ static void vpu_service_power_off(struct vpu_service_info *pservice)
 		clk_disable_unprepare(pservice->clk_cabac);
 
 	atomic_add(1, &pservice->power_off_cnt);
-#ifdef CONFIG_WAKELOCK
-	wake_unlock(&pservice->wake_lock);
-#endif
+
 	dev_dbg(pservice->dev, "power off done\n");
 	print_exit_func(pservice->dev);
 }
@@ -927,9 +911,7 @@ static void vpu_service_power_on(struct vpu_subdev_data *data,
 
 	udelay(5);
 	atomic_add(1, &pservice->power_on_cnt);
-#ifdef CONFIG_WAKELOCK
-	wake_lock(&pservice->wake_lock);
-#endif
+
 	print_exit_func(pservice->dev);
 }
 
@@ -1087,6 +1069,7 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 	int offset = 0;
 
 	print_enter_func(data->dev);
+
 	if (tbl == NULL || size <= 0) {
 		dev_err(pservice->dev, "input arguments invalidate\n");
 		print_exit_func_with_issue(data->dev);
@@ -1270,12 +1253,13 @@ static int vcodec_reg_address_translate(struct vpu_subdev_data *data,
 		const u8 *tbl = info->table;
 		int size = info->count;
 
+		print_exit_func(pservice->dev);
 		return vcodec_bufid_to_iova(data, session, tbl, size, reg,
 					    ext_inf);
 	}
 
 	dev_err(pservice->dev, "found invalid format type!\n");
-	print_exit_func(data->dev);
+	print_exit_func_with_issue(data->dev);
 	return -EINVAL;
 }
 
@@ -2438,9 +2422,7 @@ static void vcodec_init_drvdata(struct vpu_service_info *pservice)
 	print_enter_func(pservice->dev);
 	pservice->dev_id = VCODEC_DEVICE_ID_VPU;
 	pservice->curr_mode = -1;
-#ifdef CONFIG_WAKELOCK
-	wake_lock_init(&pservice->wake_lock, WAKE_LOCK_SUSPEND, "vpu");
-#endif
+
 	INIT_LIST_HEAD(&pservice->waiting);
 	INIT_LIST_HEAD(&pservice->running);
 	mutex_init(&pservice->lock);
@@ -2572,9 +2554,7 @@ static int vcodec_probe(struct platform_device *pdev)
 err:
 	dev_info(dev, "init failed\n");
 	destroy_workqueue(pservice->set_workq);
-#ifdef CONFIG_WAKELOCK
-	wake_lock_destroy(&pservice->wake_lock);
-#endif
+
 	print_exit_func_with_issue(dev);
 	return ret;
 }

@@ -48,7 +48,6 @@ struct vcodec_drm_buffer {
 	int index;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
-	struct sg_table *copy_sgt;
 	struct page **pages;
 	struct kref ref;
 	struct vcodec_iommu_session_info *session_info;
@@ -173,6 +172,8 @@ static int vcodec_drm_attach(struct vcodec_iommu_info *iommu_info)
 	return ret;
 }
 
+/* Has nothing to do with DRM... AT ALL ! This just VMAP some pages
+ * somewhere and return the address. What the fuck... */
 static void *vcodec_drm_sgt_map_kernel(struct vcodec_drm_buffer *drm_buffer)
 {
 	struct vcodec_iommu_session_info *session_info =
@@ -205,6 +206,7 @@ static void *vcodec_drm_sgt_map_kernel(struct vcodec_drm_buffer *drm_buffer)
 		    pgprot_noncached(PAGE_KERNEL));
 }
 
+/* Nothing to do with DRM TOO ! */
 static void vcodec_drm_sgt_unmap_kernel(struct vcodec_drm_buffer *drm_buffer)
 {
 	print_enter_func(drm_buffer->session_info->dev);
@@ -213,6 +215,7 @@ static void vcodec_drm_sgt_unmap_kernel(struct vcodec_drm_buffer *drm_buffer)
 	print_exit_func(drm_buffer->session_info->dev);
 }
 
+/* ... */
 static void vcodec_dma_unmap_sg(struct iommu_domain *domain,
 				dma_addr_t dma_addr)
 {
@@ -234,6 +237,7 @@ static void vcodec_dma_unmap_sg(struct iommu_domain *domain,
 		"... Getting out a function that should not be there");
 }
 
+/* WhatTheFuckDoesItHaveToDoWithDRM.com */
 static void vcodec_drm_clear_map(struct kref *ref)
 {
 	struct vcodec_drm_buffer *drm_buffer =
@@ -254,8 +258,6 @@ static void vcodec_drm_clear_map(struct kref *ref)
 
 	if (drm_buffer->attach) {
 		vcodec_dma_unmap_sg(drm_info->domain, drm_buffer->iova);
-		sg_free_table(drm_buffer->copy_sgt);
-		kfree(drm_buffer->copy_sgt);
 		dma_buf_unmap_attachment(drm_buffer->attach, drm_buffer->sgt,
 					 DMA_BIDIRECTIONAL);
 		dma_buf_detach(drm_buffer->dma_buf, drm_buffer->attach);
@@ -267,6 +269,7 @@ static void vcodec_drm_clear_map(struct kref *ref)
 	print_exit_func(iommu_info->dev);
 }
 
+/* This just dump buffers and their addresses */
 static void vcdoec_drm_dump_info(struct vcodec_iommu_session_info *session_info)
 {
 	struct vcodec_drm_buffer *drm_buffer = NULL, *n;
@@ -285,6 +288,11 @@ static void vcdoec_drm_dump_info(struct vcodec_iommu_session_info *session_info)
 	print_exit_func(session_info->dev);
 }
 
+/* This just frees some session infos and put back the DRM Buffer it
+ * gots earlier, for what ever fucking reason it needed it.
+ * Don't GUESS ! Seriously ! Guessing things with this driver
+ * will lead you to a wall !
+ */
 static int vcodec_drm_free(struct vcodec_iommu_session_info *session_info,
 			   int idx)
 {
@@ -317,6 +325,9 @@ static int vcodec_drm_free(struct vcodec_iommu_session_info *session_info,
 	return 0;
 }
 
+/* How many unmap and free functions does this thing needs.
+ * Nothing to do with DRM anyway.
+ */
 static int
 vcodec_drm_unmap_iommu(struct vcodec_iommu_session_info *session_info,
 		       int idx)
@@ -349,6 +360,7 @@ vcodec_drm_unmap_iommu(struct vcodec_iommu_session_info *session_info,
 	return 0;
 }
 
+/* Is this thing reimplementing everything by itself ? */
 static int vcodec_drm_map_iommu(struct vcodec_iommu_session_info *session_info,
 				int idx,
 				unsigned long *iova,
@@ -417,6 +429,7 @@ vcodec_drm_unmap_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 	return 0;
 }
 
+/* ?? Free FD ? Who asks for that ? The user ? Or the VPU itself ? */
 static int
 vcodec_drm_free_fd(struct vcodec_iommu_session_info *session_info, int fd)
 {
@@ -493,6 +506,12 @@ vcodec_drm_map_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 	return drm_buffer->cpu_addr;
 }
 
+/* I still have no idea what this part wants to do.
+ * Seriously, this is named DRM import but remember that we're inside
+ * the VPU driver !
+ * So who imports WHAT and WHY ? Is the VPU importing the DRM buffer ?
+ * Or does this code tries to make the DRM driver imports its buffers ?
+ */
 static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 			     int fd)
 {
@@ -505,18 +524,25 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 	struct sg_table *sgt;
 	struct dma_buf *dma_buf;
 	ktime_t oldest_time = ktime_set(0, 0);
-	struct scatterlist *sg, *s;
-	int i;
 	int ret = 0;
-	struct iommu_domain *domain = drm_info->domain;
 
 	print_enter_func(dev);
+
+	/* Gets the buffer attached to the FD. The user is using PRIME
+	 * so we're sure that the FD represents a DMA Buffer.
+	 * Still, why not use PRIME functions directly ?
+	 * This is old code though...
+	 */
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR(dma_buf)) {
 		ret = PTR_ERR(dma_buf);
 		return ret;
 	}
 
+	/* So it tries to find its DMA Buffer back !? And if it finds it,
+	 * the code puts the second reference it got previously and return
+	 * the index of the found buffer ??
+	 */
 	list_for_each_entry_safe(drm_buffer, n,
 				 &session_info->buffer_list, list) {
 		if (drm_buffer->dma_buf == dma_buf) {
@@ -526,6 +552,11 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		}
 	}
 
+	/* If we're here, he didn't find the DMA buffer in its buffer list
+	 * So it allocates a new "DRM Buffer" that has nothing to do with
+	 * DRM besides the name...
+	 * Remember that we're always in the VPU code !
+	 */
 	drm_buffer = kzalloc(sizeof(*drm_buffer), GFP_KERNEL);
 	dev_info(dev, "( Myy ) kzalloc(%d, GFP_KERNEL) → %p\n",
 		sizeof(*drm_buffer), drm_buffer);
@@ -534,55 +565,60 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		return ret;
 	}
 
+	/* Store the address of the DMA buffer in the DRM Buffer structure */
 	drm_buffer->dma_buf = dma_buf;
 	drm_buffer->session_info = session_info;
 	drm_buffer->last_used = ktime_get();
 
+	/* Initialize a kernel reference structure... ??? Why... */
 	kref_init(&drm_buffer->ref);
 
+	/* Hold and Lock a mutex. Careful IOMMU Info is some hand-made
+	 * structure that has barefly anything to do with IOMMU. Don't
+	 * get started.
+	 */
 	mutex_lock(&iommu_info->iommu_mutex);
+
+	/* Told you ! */
 	drm_info = session_info->iommu_info->private;
 
+	/* Attach the exported DMA Buffer to the VPU device */
 	attach = dma_buf_attach(drm_buffer->dma_buf, dev);
 	if (IS_ERR(attach)) {
 		ret = PTR_ERR(attach);
 		goto fail_out;
 	}
 
+	/* And then get the buffer again... ??? */
 	get_dma_buf(drm_buffer->dma_buf);
 
+	/* Map the attachment to start using it. This will be provide the
+	 * Scatter-Gather holding the content of the the DMA Buffer.
+	 */
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
 	}
 
+	/* Let's see if you understand the next comment */
 	/*
 	 * Since we call dma_buf_map_attachment outside attach/detach, this
 	 * will cause incorrectly map. we have to re-build map table native
 	 * and for avoiding destroy their origin map table, we need use a
 	 * copy one sg_table.
 	 */
-	drm_buffer->copy_sgt = kmalloc(sizeof(*drm_buffer->copy_sgt),
-				       GFP_KERNEL);
-	dev_info(dev, "( Myy ) kzalloc(%d, GFP_KERNEL) → %p\n",
-		sizeof(*drm_buffer->copy_sgt), drm_buffer->copy_sgt);
-	if (!drm_buffer->copy_sgt) {
-		ret = -ENOMEM;
-		goto fail_detach;
-	}
+	
+	/* Did you get it ? Because I don't ! What table is he talking about ?
+	 * The IOMMU Translation table ??
+	 * Note that the copy is INSANE ! We just allocated a DMA buffer,
+	 * made sure that everything is attached correctly to the right
+	 * devices... All of that and we copy data into a non DMA memory
+	 * space !?
+	 * Code dropped. See the Git history for details.
+	 */
 
-	ret = sg_alloc_table(drm_buffer->copy_sgt, sgt->nents, GFP_KERNEL);
-	s = drm_buffer->copy_sgt->sgl;
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		sg_set_page(s, sg_page(sg),
-			    PAGE_SIZE << compound_order(sg_page(sg)), 0);
-		sg_dma_address(s) = page_to_phys(sg_page(sg));
-		s->offset = sg->offset;
-		s->length = sg->length;
-
-		s = sg_next(s);
-	}
+	/* ... */
 
 	// The real problem
 	// iommu_get_domain_for_dev NEVER works...
@@ -592,29 +628,49 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 
 	// The crash
 	// So we can't use iommu_dma_map_sg...
-	
-	ret = myy_iommu_dma_map_sg(drm_info->domain,
-		iommu_info->dev, drm_buffer->copy_sgt->sgl,
-		drm_buffer->copy_sgt->nents,
+
+	/* Wasn't the DMA Buffer already mapped ? What is this thing trying
+	 * to map again ? How many times must you map something to get it
+	 * mapped correctly ? What is the IOMMU doing here anyway ?
+	 * Who ate my sandwich ?
+	 */
+	/*ret = myy_iommu_dma_map_sg(drm_info->domain,
+		iommu_info->dev, sgt->sgl, sgt->nents,
 		IOMMU_READ | IOMMU_WRITE);
 
 	if (!ret) {
 		ret = -ENOMEM;
 		goto fail_alloc;
-	}
-	drm_buffer->iova = sg_dma_address(drm_buffer->copy_sgt->sgl);
+	}*/
+	/* What happen if I comment this ? */
+
+	/* Set up the "drm_buffer" data structure with informations like the
+	 * IO Virtual Address of the Scatter-Gather list, the size of the
+	 * DMA Buffer, the attachment, ...
+	 */
+	drm_buffer->iova = sg_dma_address(sgt->sgl);
 	drm_buffer->size = drm_buffer->dma_buf->size;
 
 	drm_buffer->attach = attach;
 	drm_buffer->sgt = sgt;
 
+	/* Unlock our Mutex ! */
 	mutex_unlock(&iommu_info->iommu_mutex);
 
+	/* Initialize a list... */
 	INIT_LIST_HEAD(&drm_buffer->list);
+
+	/* Lock the session Mutex this time ... ? */
 	mutex_lock(&session_info->list_mutex);
+
+	/* Increment the number of buffers in the session !
+	 * Did we store anything in it ? */
 	session_info->buffer_nums++;
+
 	vpu_iommu_debug(session_info->debug_level, DEBUG_IOMMU_NORMAL,
 			"buffer nums %d\n", session_info->buffer_nums);
+
+	/* This... remove buffers when there's too much buffers ? */
 	if (session_info->buffer_nums > BUFFER_LIST_MAX_NUMS) {
 		list_for_each_entry_safe(loop_buffer, n,
 				 &session_info->buffer_list, list) {
@@ -631,19 +687,34 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		kfree(oldest_buffer);
 		session_info->buffer_nums--;
 	}
+
+	/* Set the current index of this buffer */
 	drm_buffer->index = session_info->max_idx;
+
+	/* Add the "DRM" Buffer list to the session buffer list */
 	list_add_tail(&drm_buffer->list, &session_info->buffer_list);
+
+	/* Increment the next index */
 	session_info->max_idx++;
+
+	/* What the fuck... if max_idx = 0 then set max_idx to 0
+	 * Of course...
+	 * Is there a reason to make max_idx a "signed" int by the way ?
+	 */
 	if ((session_info->max_idx & 0xfffffff) == 0)
 		session_info->max_idx = 0;
+
+	/* Unlock our session mutex ! */
 	mutex_unlock(&session_info->list_mutex);
 
 	print_exit_func(dev);
+
+	/* Return our buffer index ! */
 	return drm_buffer->index;
 
+	/* Error management. Nothing in this fucking function had anything
+	 * to do with DRM... */
 fail_alloc:
-	sg_free_table(drm_buffer->copy_sgt);
-	kfree(drm_buffer->copy_sgt);
 	dma_buf_unmap_attachment(attach, sgt,
 				 DMA_BIDIRECTIONAL);
 fail_detach:
