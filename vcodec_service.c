@@ -978,6 +978,16 @@ static int vcodec_fd_to_iova(struct vpu_subdev_data *data,
 	}
 
 	mem_region->hdl = hdl;
+
+	/* vcodec_iommu_map_iommu is supposed to setup the iova and len
+	 * fields.
+	 * 
+	 * The ION implementation set :
+	 * - iova to the dma_addr_t of the ION buffer's ScatterGather list
+	 *   mapped using rockchip_iovmm_map(ion_iommu_dev, .
+	 * rockchip_iovmm_map being a custom function only availale in
+	 * Rockchip 4.4 kernels...
+	 */
 	ret = vcodec_iommu_map_iommu(data->iommu_info, session, mem_region->hdl,
 				     &mem_region->iova, &mem_region->len);
 	if (ret < 0) {
@@ -991,6 +1001,7 @@ static int vcodec_fd_to_iova(struct vpu_subdev_data *data,
 	list_add_tail(&mem_region->reg_lnk, &reg->mem_region_list);
 
 	print_exit_func(data->dev);
+
 	return mem_region->iova;
 }
 
@@ -1032,20 +1043,19 @@ static int fill_scaling_list_addr_in_pps(
 
 	if (scaling_fd > 0) {
 		int i = 0;
-		u32 tmp = vcodec_fd_to_iova(data, reg->session, reg,
-					    scaling_fd);
-
-		if (IS_ERR_VALUE(tmp)) {
+		u32 const iova = vcodec_fd_to_iova(data, reg->session, reg,
+					scaling_fd);
+		u32 const offseted_iova = iova + scalling_offset;
+		if (IS_ERR_VALUE(iova)) {
 			print_exit_func_with_issue(data->dev);
 			return -1;
 		}
-		tmp += scaling_offset;
 
 		for (i = 0; i < pps_info_count; i++, base += pps_info_size) {
-			pps[base + 0] = (tmp >>  0) & 0xff;
-			pps[base + 1] = (tmp >>  8) & 0xff;
-			pps[base + 2] = (tmp >> 16) & 0xff;
-			pps[base + 3] = (tmp >> 24) & 0xff;
+			pps[base + 0] = (offseted_iova >>  0) & 0xff;
+			pps[base + 1] = (offseted_iova >>  8) & 0xff;
+			pps[base + 2] = (offseted_iova >> 16) & 0xff;
+			pps[base + 3] = (offseted_iova >> 24) & 0xff;
 		}
 	}
 
@@ -1098,12 +1108,15 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 		if (task->reg_rlc == tbl[i])
 			vcodec_iommu_free_fd(data->iommu_info, session, usr_fd);
 		/*
+		 * ↓ This should be put in format specific functions ↓
+		 * -- Myy
+		 * 
 		 * special offset scale case
 		 *
 		 * This translation is for fd + offset translation.
 		 * One register has 32bits. We need to transfer both buffer file
-		 * handle and the start address offset so we packet file handle
-		 * and offset together using below format.
+		 * handle and the start address offset so we pack the file handle
+		 * and the offset together using the format below.
 		 *
 		 *  0~9  bit for buffer file handle range 0 ~ 1023
 		 * 10~31 bit for offset range 0 ~ 4M
@@ -1124,6 +1137,7 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 		vpu_debug(DEBUG_IOMMU, "pos %3d fd %3d offset %10d i %d\n",
 			  tbl[i], usr_fd, offset, i);
 
+		/* Get a handle for our buffer... to use later on ? */
 		hdl = vcodec_iommu_import(data->iommu_info, session, usr_fd);
 
 		if (task->reg_pps > 0 && task->reg_pps == tbl[i]) {
@@ -1168,6 +1182,24 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 			if (pps_info_count) {
 				u8 *pps;
 
+				/* What the fuck is PPS */
+				/* Map... (Nothing to do with IOMMU BTW) */
+				/* That's even WORSE. On the ION implementation :
+				 * - When using the DRM Heap, this will return NULL every time.
+				 * - When using the CMA Heap, this will return an address
+				 *   previously returned by a dma_alloc_coherent call during
+				 *   the allocation of the buffer. The buffer cpu address ?
+				 * So worst case : NULL every time
+				 * Best case : A CPU Address from the DMA Coherent memory
+				 * region of the device, or anything that can be returned by
+				 * dma_alloc_coherent...
+				 * 
+				 * Now, the question is : What is this address used for ?
+				 * 
+				 * The address is used to calculate a "scaling offset"...
+				 * What's a scaling offset ?
+				 * I HAVE NO IDEA !
+				 */
 				pps = vcodec_iommu_map_kernel
 					(data->iommu_info, session, hdl);
 
@@ -1180,6 +1212,8 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 					 pps_info_size,
 					 scaling_list_addr_offset);
 
+				/* ... And then unmap 2 seconds later
+				 * (Still nothing to do with IOMMU)*/
 				vcodec_iommu_unmap_kernel
 					(data->iommu_info, session, hdl);
 			}
@@ -1196,6 +1230,36 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 		mem_region->hdl = hdl;
 		mem_region->reg_idx = tbl[i];
 
+		/* Map with IOMMU this time... */
+		/* vcodec_iommu_map_iommu is supposed to setup the iova and len
+		 * fields.
+		 * 
+		 * The ION implementation set :
+		 * - iova to the dma_addr_t value returned by calling
+		 *   rockchip_iovmm_map(
+		 *     vpu_dev:                struct device * dev,
+		 *     buffer->priv_virt->sgl: struct scatterlist *sg,
+		 *     0                     : off_t offset,
+		 *     buffer->size          : size_t size (iova_length)
+		 *   )
+		 *   While the address returned by rockchip_iovmm_map is generated
+		 *   using the values returned by :
+		 *       gen_pool_alloc(vmm->vmm_pool, size+IOMMU_REGION_GUARD)
+		 *     + offset_in_page(sg_phys(sg))
+		 *   with vmm->vmm_pool being initialized like this :
+		 *       vmm->vmm_pool = gen_pool_create(PAGE_SHIFT, -1)
+		 *       gen_pool_add(
+		 *         vmm->vmm_pool, 0x10000000, (SZ_1G - SZ_4K), -1
+		 *       );
+		 *   rockchip_iovmm_map actually do a lot of operations to align
+		 *   the elements of the sg list.
+		 *   The operation end with an iommu_map_sg call.
+		 * 
+		 * - len to the ION buffer->size
+		 * 
+		 * rockchip_iovmm_map being a custom function only availale in
+		 * Rockchip 4.4 kernels...
+		 */
 		ret = vcodec_iommu_map_iommu(data->iommu_info, session,
 					     mem_region->hdl, &mem_region->iova,
 					     &mem_region->len);
@@ -1225,6 +1289,9 @@ static int vcodec_bufid_to_iova(struct vpu_subdev_data *data,
 		list_add_tail(&mem_region->reg_lnk, &reg->mem_region_list);
 	}
 
+	/* The word info is used in every possible way */
+	/* These are Extra information for the IOMMU...
+	 * ... ? And ... ? */
 	if (ext_inf != NULL && ext_inf->magic == EXTRA_INFO_MAGIC) {
 		for (i = 0; i < ext_inf->cnt; i++) {
 			vpu_debug(DEBUG_IOMMU, "reg[%d] + offset %d\n",
@@ -1337,6 +1404,11 @@ static struct vpu_reg *reg_init(struct vpu_subdev_data *data,
 		print_exit_func_with_issue(data->dev);
 		return NULL;
 	}
+
+	dev_err(pservice->dev, "Dumping registers\n");
+	for (i = 0; i < size >> 2; i++)
+			dev_err(pservice->dev, "reg[%02d]: %08x\n",
+				i, *((u32 *)src + i));
 
 	if (vcodec_reg_address_translate(data, session, reg, &extra_info) < 0) {
 		int i = 0;
@@ -2482,6 +2554,7 @@ static int vcodec_probe(struct platform_device *pdev)
 	vcodec_read_property(np, pservice);
 	vcodec_init_drvdata(pservice);
 
+	/* ↓ ??? */
 	/* Underscore for label, hyphens for name */
 	switch (driver_data->device_type) {
 	case VCODEC_DEVICE_TYPE_VPUX:

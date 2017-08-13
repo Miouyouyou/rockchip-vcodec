@@ -74,7 +74,7 @@ static int vcodec_ion_attach(struct vcodec_iommu_info *iommu_info)
 		return 0;
 	}
 
-	rockchip_iovmm_activate(iommu_info->dev);
+	rockchip_iovmm_activate(iommu_info->vpu_dev);
 
 	ion_info->attached = true;
 
@@ -94,7 +94,7 @@ static void vcodec_ion_detach(struct vcodec_iommu_info *iommu_info)
 		return;
 	}
 
-	rockchip_iovmm_deactivate(iommu_info->dev);
+	rockchip_iovmm_deactivate(iommu_info->vpu_dev);
 	ion_info->attached = false;
 
 	mutex_unlock(&iommu_info->iommu_mutex);
@@ -160,13 +160,13 @@ vcodec_ion_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
 		     unsigned long *iova, unsigned long *size)
 {
 	struct vcodec_ion_buffer *ion_buffer;
-	struct device *dev = session_info->dev;
+	struct device *dev = session_info->vpu_dev;
 	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_ion_info *ion_info = iommu_info->private;
 	int ret = 0;
 
 	/* Force to flush iommu table */
-	rockchip_iovmm_invalidate_tlb(session_info->dev);
+	rockchip_iovmm_invalidate_tlb(session_info->vpu_dev);
 
 	mutex_lock(&session_info->list_mutex);
 	ion_buffer = vcodec_ion_get_buffer_no_lock(session_info, idx);
@@ -179,7 +179,7 @@ vcodec_ion_map_iommu(struct vcodec_iommu_session_info *session_info, int idx,
 	}
 
 	if (session_info->mmu_dev)
-		ret = ion_map_iommu(dev, ion_info->ion_client,
+		ret = ion_map_iommu(vpu_dev, ion_info->ion_client,
 				    ion_buffer->handle, iova, size);
 	else
 		ret = ion_phys(ion_info->ion_client, ion_buffer->handle,
@@ -214,7 +214,7 @@ vcodec_ion_map_kernel(struct vcodec_iommu_session_info *session_info, int idx)
 	struct vcodec_iommu_info *iommu_info = session_info->iommu_info;
 	struct vcodec_iommu_ion_info *ion_info = iommu_info->private;
 
-	rockchip_iovmm_invalidate_tlb(session_info->dev);
+	rockchip_iovmm_invalidate_tlb(session_info->vpu_dev);
 
 	mutex_lock(&session_info->list_mutex);
 	ion_buffer = vcodec_ion_get_buffer_no_lock(session_info, idx);

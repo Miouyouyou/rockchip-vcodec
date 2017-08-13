@@ -72,7 +72,7 @@ struct vcodec_iommu_session_info {
 	struct list_head buffer_list;
 	struct mutex list_mutex;
 	int max_idx;
-	struct device *dev;
+	struct device *vpu_dev;
 	struct device *mmu_dev;
 	struct vcodec_iommu_info *iommu_info;
 	int debug_level;
@@ -82,7 +82,7 @@ struct vcodec_iommu_info {
 	struct list_head session_list;
 	struct mutex list_mutex;
 	struct mutex iommu_mutex;
-	struct device *dev;
+	struct device *vpu_dev;
 	struct device *mmu_dev;
 	struct vcodec_iommu_ops *ops;
 	int debug_level;
