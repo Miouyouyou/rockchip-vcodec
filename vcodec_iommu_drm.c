@@ -270,7 +270,7 @@ static void vcodec_drm_clear_map(struct kref *ref)
 }
 
 /* This just dump buffers and their addresses */
-static void vcdoec_drm_dump_info(struct vcodec_iommu_session_info *session_info)
+static void vcodec_drm_dump_info(struct vcodec_iommu_session_info *session_info)
 {
 	struct vcodec_drm_buffer *drm_buffer = NULL, *n;
 
@@ -788,7 +788,7 @@ static struct vcodec_iommu_ops drm_ops = {
 	.map_iommu = vcodec_drm_map_iommu,
 	.unmap_iommu = vcodec_drm_unmap_iommu,
 	.destroy = vcodec_drm_destroy,
-	.dump = vcdoec_drm_dump_info,
+	.dump = vcodec_drm_dump_info,
 	.attach = vcodec_drm_attach,
 	.detach = vcodec_drm_detach,
 	.clear = vcodec_drm_clear_session,
