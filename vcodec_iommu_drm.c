@@ -39,6 +39,8 @@
 
 #include "vcodec_iommu_ops.h"
 
+#define LOG(fmt, args...) printk(KERN_ERR "[%s:%d] "fmt, __func__, __LINE__, ##args)
+
 struct vcodec_drm_buffer {
 	struct list_head list;
 	struct dma_buf *dma_buf;
@@ -391,7 +393,10 @@ static void vcodec_drm_clear_map(struct kref *ref)
 	}
 
 	if (drm_buffer->attach) {
-		vcodec_dma_unmap_sg(drm_info->domain, drm_buffer->iova);
+		iommu_myy_dma_unmap_sg(drm_info->domain,
+			drm_buffer->copy_sgt->sgl,
+			drm_buffer->copy_sgt->nents);
+		//vcodec_dma_unmap_sg(drm_info->domain, drm_buffer->iova);
 		sg_free_table(drm_buffer->copy_sgt);
 		kfree(drm_buffer->copy_sgt);
 		dma_buf_unmap_attachment(drm_buffer->attach, drm_buffer->sgt,
@@ -689,9 +694,11 @@ static int vcodec_drm_import(struct vcodec_iommu_session_info *session_info,
 		s = sg_next(s);
 	}
 
-	ret = vcodec_dma_map_sg(drm_info->domain, drm_buffer->copy_sgt->sgl,
-				drm_buffer->copy_sgt->nents,
-				IOMMU_READ | IOMMU_WRITE);
+	ret = iommu_myy_dma_map_sg(drm_info->domain,
+					dev,
+					drm_buffer->copy_sgt->sgl,
+					drm_buffer->copy_sgt->nents,
+					IOMMU_READ | IOMMU_WRITE);
 	dev_info(dev,
 		"vcodec_dma_map_sg(%p, %p, %d, IOMMU_READ | IOMMU_WRITE) → %d\n",
 		drm_info->domain, drm_buffer->copy_sgt->sgl,
