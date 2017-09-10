@@ -1,5 +1,6 @@
-If you appreciate this project, support me on Patreon !
+If you appreciate this project, support me through Patreon or Pledgie !
 
+[![Pledgie !](https://pledgie.com/campaigns/32702.png)](https://pledgie.com/campaigns/32702)
 [![Patreon !](https://raw.githubusercontent.com/Miouyouyou/RockMyy/master/.img/button-patreon.png)](https://www.patreon.com/Miouyouyou)
 
 # About
@@ -24,6 +25,10 @@ state.
 You'll need a patched kernel anyway if you want to test this VPU code.
 The patches required are in the [kernel_patches][./kernel_patches]
 directory.
+
+A kernel cross-compilation script including these patches is available
+in my [**RockMyy**](https://github.com/Miouyouyou/RockMyy/tree/VPU_Work_tests)
+repository.
 
 # Compilation
 

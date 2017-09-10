@@ -44,5 +44,5 @@ clean:
 # You could replace this by a scp command that sends the module to
 # your ARM system.
 install:
-#	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
-	scp *.ko 10.100.0.55:/tmp
+	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
+#	scp *.ko 10.100.0.55:/tmp
