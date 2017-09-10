@@ -12,4 +12,8 @@ Module.symvers
 *.kate-swp
 .tmp_versions
 modules.order
-
+.cproject
+.kdev4
+.project
+.settings
+*.kdev4
