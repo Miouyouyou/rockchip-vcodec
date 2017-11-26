@@ -17,3 +17,5 @@ modules.order
 .project
 .settings
 *.kdev4
+kernel/
+linux/
