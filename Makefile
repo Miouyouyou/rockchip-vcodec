@@ -1,18 +1,18 @@
 # Set this variable with the path to your kernel.
 # Don't use /usr/src/linux if you're cross-compiling...
-MYY_KERNEL_DIR ?= ../linux
+MYY_KERNEL_DIR ?= ../RockMyy/linux
 
 # If you're compiling for ARM64, this will be arm64
 ARCH ?= arm
 
 # This is the prefix attached to your cross-compiling gcc/ld/... tools
 # In my case, gcc is armv7a-hardfloat-linux-gnueabi-gcc
-# If you've installed cross-compiling tools and don't know your 
+# If you've installed cross-compiling tools and don't know your
 # prefix, just type "arm" in a shell, hit <TAB> twice
 #
 # If you're compiling from ARM system with the same architecture
 # (arm on arm or arm64 on arm64) delete the characters after "?="
-CROSS_COMPILE ?= armv7a-hardfloat-linux-gnueabi-
+CROSS_COMPILE ?= arm-linux-gnueabihf-
 
 # The modules will be installed in $(INSTALL_MOD_PATH)/lib/...
 # That might not be needed at all, if you're replacing the "install"
@@ -25,9 +25,8 @@ INSTALL_HDR_PATH ?= $(INSTALL_MOD_PATH)/usr
 ccflags-y += -I${src}/include -DCONFIG_DRM=1
 
 # Determine what's needed to compile rk-vcodec.o
-# Every '.o' file corresponds to a '.c' file.
-rk-vcodec-objs := vcodec_service.o vcodec_iommu_ops.o
-rk-vcodec-objs += vcodec_iommu_drm.o
+# Every '.o' file corresponds to a '.c' file
+rk-vcodec-objs := vcodec_service.o vcodec_iommu_dma.o
 
 # Replace m by y if you want to integrate it or
 # replace it by a configuration option that should be enabled when
@@ -44,5 +43,5 @@ clean:
 # You could replace this by a scp command that sends the module to
 # your ARM system.
 install:
-	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
-#	scp *.ko 10.100.0.55:/tmp
+#	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
+	scp *.ko 10.100.0.55:/tmp
