@@ -19,3 +19,5 @@ modules.order
 *.kdev4
 kernel/
 linux/
+.cache.mk
+

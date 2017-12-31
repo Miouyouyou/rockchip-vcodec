@@ -44,4 +44,4 @@ clean:
 # your ARM system.
 install:
 #	make INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) INSTALL_PATH=$(INSTALL_PATH) INSTALL_HDR_PATH=$(INSTALL_HDR_PATH) M=$(PWD) -C $(MYY_KERNEL_DIR) modules_install
-	scp *.ko 10.100.0.55:/tmp
+	scp *.ko 192.168.1.55:/tmp

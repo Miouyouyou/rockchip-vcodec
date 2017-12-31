@@ -1,0 +1,51 @@
+menu "ROCKCHIP_MPP"
+	depends on ARCH_ROCKCHIP
+
+config ROCKCHIP_MPP_SERVICE
+	tristate "mpp service scheduler"
+	default n
+	help
+	  rockchip mpp service.
+
+config ROCKCHIP_MPP_DEVICE
+	tristate "mpp device framework"
+	depends on ROCKCHIP_MPP_SERVICE
+	default n
+	help
+	  rockchip mpp device framework.
+
+config ROCKCHIP_MPP_VDEC_DEVICE
+	tristate "video decoder device driver"
+	depends on ROCKCHIP_MPP_DEVICE
+	default n
+	help
+	  rockchip mpp video decoder and hevc decoder.
+
+config ROCKCHIP_MPP_VDPU1_DEVICE
+	tristate "VPU decoder v1 device driver"
+	depends on ROCKCHIP_MPP_DEVICE
+	default n
+	help
+	  rockchip mpp vpu decoder v1.
+
+config ROCKCHIP_MPP_VEPU1_DEVICE
+	tristate "VPU encoder v1 device driver"
+	depends on ROCKCHIP_MPP_DEVICE
+	default n
+	help
+	  rockchip mpp vpu encoder v1.
+
+config ROCKCHIP_MPP_VDPU2_DEVICE
+	tristate "VPU decoder v2 device driver"
+	depends on ROCKCHIP_MPP_DEVICE
+	default n
+	help
+	  rockchip mpp vpu decoder v2.
+
+config ROCKCHIP_MPP_VEPU2_DEVICE
+	tristate "VPU encoder v2 device driver"
+	depends on ROCKCHIP_MPP_DEVICE
+	default n
+	help
+	  rockchip mpp vpu encoder v2.
+endmenu

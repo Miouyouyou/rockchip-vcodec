@@ -3,6 +3,8 @@ If you appreciate this project, support me through Patreon or Pledgie !
 [![Pledgie !](https://pledgie.com/campaigns/32702.png)](https://pledgie.com/campaigns/32702)
 [![Patreon !](https://raw.githubusercontent.com/Miouyouyou/RockMyy/master/.img/button-patreon.png)](https://www.patreon.com/Miouyouyou)
 
+# THIS BRANCH IS CURRENTLY IN DEVELOPMENT AND BROKEN
+
 # About
 
 This repository goal is to focus on this Rockchip VPU driver code in

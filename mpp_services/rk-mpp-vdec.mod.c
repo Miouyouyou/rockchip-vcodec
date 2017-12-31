@@ -18,13 +18,9 @@ __attribute__((section(".gnu.linkonce.this_module"))) = {
 static const char __module_depends[]
 __used
 __attribute__((section(".modinfo"))) =
-"depends=";
+"depends=rk-mpp-device";
 
-MODULE_ALIAS("of:N*T*Crockchip,vpu_service");
-MODULE_ALIAS("of:N*T*Crockchip,vpu_serviceC*");
-MODULE_ALIAS("of:N*T*Crockchip,hevc_service");
-MODULE_ALIAS("of:N*T*Crockchip,hevc_serviceC*");
-MODULE_ALIAS("of:N*T*Crockchip,vpu_combo");
-MODULE_ALIAS("of:N*T*Crockchip,vpu_comboC*");
-MODULE_ALIAS("of:N*T*Crockchip,rkvdec");
-MODULE_ALIAS("of:N*T*Crockchip,rkvdecC*");
+MODULE_ALIAS("of:N*T*Crockchip,video-decoder-v1");
+MODULE_ALIAS("of:N*T*Crockchip,video-decoder-v1C*");
+MODULE_ALIAS("of:N*T*Crockchip,hevc-decoder-v1");
+MODULE_ALIAS("of:N*T*Crockchip,hevc-decoder-v1C*");
