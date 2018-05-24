@@ -1,5 +1,7 @@
+.*
 *.o
 *.ko
+*.mod.c
 *.install
 *.cmd
 Module.symvers
